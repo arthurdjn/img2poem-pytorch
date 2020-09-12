@@ -132,5 +132,6 @@ dmypy.json
 
 
 # Others
+.data/
 *test*.ipynb
 readings/
