@@ -1,5 +1,6 @@
 ![Python](https://img.shields.io/badge/python-3.+-blue.svg)
-![pytorch](https://img.shields.io/badge/pytorch-1.6.0-orange.svg)
+![pytorch](https://img.shields.io/badge/pytorch-1.6.0-ee4c2c.svg)
+![tensorflow](https://img.shields.io/badge/tensorflow-2.3.0-orange.svg)
 
 # img2poem-pytorch
 

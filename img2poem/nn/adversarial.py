@@ -1,4 +1,4 @@
-# File: __init__.py
+# File: adversarial.py
 # Creation: Saturday September 12th 2020
 # Author: Arthur Dujardin
 # Contact: arthur.dujardin@ensg.eu
