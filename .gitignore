@@ -130,8 +130,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
 # Others
+examples/
+models/
+data/poems/multim_images/
 .data/
 *test*.ipynb
 readings/
