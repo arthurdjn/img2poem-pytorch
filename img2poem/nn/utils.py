@@ -14,7 +14,7 @@ from tqdm import tqdm
 import torch
 
 
-def download_weights(url, outdir='.weights'):
+def download_weights(url, outdir='.data'):
     """Download pytorch weights from a url.
 
     Args:
@@ -26,21 +26,17 @@ def download_weights(url, outdir='.weights'):
 
     Example:
         >>> url = 'http://places2.csail.mit.edu/models_places365/resnet50_places365.pth.tar'
-        >>> download_weights(url, outdir='.weights')
+        >>> download_weights(url, outdir='.data')
     """
-    # Check for path issues
+    outfile = url.split('/')[-1]   
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    outfile = url.split('/')[-1]
     # Download the weights
-    try:
+    try:               
         response = requests.get(url, stream=True)
-        with open(os.path.join(outdir, outfile)) as handle:
-            for block in tqdm(response.iter_content(1024),
-                              position=0,
-                              leave=True,
-                              total=len(response.iter_content(1024))):
-                handle.write(block)
+        with open(os.path.join(outdir, outfile), "wb") as handle:
+            for data in tqdm(response.iter_content()):
+                handle.write(data)
     except Exception as error:
         print(f"{error}. Could not download the weights {outfile} from url {url}.")
 

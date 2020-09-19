@@ -39,7 +39,7 @@ class PoeticEmbeddedDataset(PoemMultiMDatasetMasks):
         super(PoeticEmbeddedDataset, self).__init__(filename, image_dir, tokenizer=tokenizer, max_seq_len=max_seq_len, transform=transform)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.tokens)
 
     def __getitem__(self, index):
 

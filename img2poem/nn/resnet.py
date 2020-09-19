@@ -76,7 +76,9 @@ class ResNet50Scene(nn.Module):
     def __init__(self, weights_path):
         super(ResNet50Scene, self).__init__()
         ResNet50 = resnet50(num_classes=365)
-        ResNet50.load_state_dict(torch.load(weights_path))
+        checkpoint = torch.load(weights_path)
+        state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()}
+        ResNet50.load_state_dict(state_dict)
         # Do not train this model
         for param in ResNet50.parameters():
             param.requires_grad = False
@@ -88,7 +90,7 @@ class ResNet50Scene(nn.Module):
         return out.view(x.size(0), -1)
 
     @classmethod
-    def download(cls, root='.weights'):
+    def download(cls, root='.data'):
         """Download the weights from ``Places365`` platform.
 
         Args:
@@ -98,5 +100,7 @@ class ResNet50Scene(nn.Module):
             ResNet50Scene
         """
         outdir = os.path.join(root, cls.dirname, cls.name)
-        weights_path = download_weights(cls.url, outdir)
+        weights_path = os.path.join(outdir, cls.url.split('/')[-1])
+        if not os.path.exists(weights_path):
+            weights_path = download_weights(cls.url, outdir)
         return ResNet50Scene(weights_path)

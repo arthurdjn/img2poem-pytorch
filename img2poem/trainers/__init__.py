@@ -11,3 +11,4 @@ from .trainer import Trainer
 from .earlystopping import EarlyStopping
 from .resnet import *
 from .embedder import *
+from .adversarial import *

@@ -10,7 +10,7 @@
 # Basic imports
 import torch
 import torch.nn as nn
-from pytorch_pretrained_bert import BertForMaskedLM
+from pytorch_pretrained_bert import BertForMaskedLM, BertModel
 
 # img2poem package
 from .resnet import ResNet50Object, ResNet50Sentiment, ResNet50Scene
@@ -18,10 +18,18 @@ from .utils import normalize
 
 
 class PoemEmbedder(nn.Module):
-    def __init__(self, embedding_dim=512):
+    """Model used to embed a poem in a poetic space.
+
+    * :attr:`bert` (torch.nn.Module): BERT model used to embed poems.
+
+    * :attr:`fc` (torch.nn.Linear): Linear layer used to map the embeddings to a poetic space.
+
+    """
+
+    def __init__(self, poetic_dim=512):
         super(PoemEmbedder, self).__init__()
-        self.bert = BertForMaskedLM.from_pretrained('bert-base-uncased')
-        self.fc = nn.Linear(768, embedding_dim)
+        self.bert = BertModel.from_pretrained('bert-base-uncased')
+        self.fc = nn.Linear(768, poetic_dim)
 
     def forward(self, x, masks):
         _, out = self.bert(x, attention_mask=masks)
@@ -29,11 +37,24 @@ class PoemEmbedder(nn.Module):
 
 
 class ImageEmbedder(nn.Module):
-    def __init__(self, sentiment_dim=5):
-        super(PoemEmbedder, self).__init__()
+    """Model used to embed an image in a poetic space.
+
+    * :attr:`object` (torch.nn.Module): ResNet50 model used to embed an object.
+
+    * :attr:`sentiment` (torch.nn.Module): ResNet50 model used to embed a sentiment.
+
+    * :attr:`scene` (torch.nn.Module): ResNet50 model used to embed a scene.
+
+    * :attr:`fc` (torch.nn.Linear): Linear layer used to map the embeddings to a poetic space.
+
+    """
+
+    def __init__(self, sentiment_dim=5, poetic_dim=512):
+        super(ImageEmbedder, self).__init__()
         self.object = ResNet50Object()
         self.sentiment = ResNet50Sentiment(sentiment_dim)
         self.scene = ResNet50Scene.download()
+        self.fc = nn.Linear(2048*2+sentiment_dim, poetic_dim)
 
     def forward(self, x):
         # x = B, C, H, W
@@ -41,13 +62,24 @@ class ImageEmbedder(nn.Module):
         out2 = self.sentiment(x)  # out = B, sentiment_dim
         out3 = self.scene(x)  # out = B, 2048
         # out = B, (2048 + 2048 + sentiment_dim)
-        return torch.cat([out1, out2, out3], dim=1)
+        out = torch.cat([out1, out2, out3], dim=1)
+        return self.fc(out)
 
 
 class PoeticEmbedder(nn.Module):
-    def __init__(self, sentiment_dim=5, embedding_dim=512, alpha=0.2):
+    """Model used to embed a pair of poem and image in a poetic space.
+
+    * :attr:`poem_embedder` (torch.nn.Module): Poem Embedder used to map poems in a poetic space.
+
+    * :attr:`image_embedder` (torch.nn.Module): Image Embedder used to map images in a poetic space.
+
+    * :attr:`alpha` (float): Float used to weight poems and images.
+
+    """
+
+    def __init__(self, sentiment_dim=5, poetic_dim=512, alpha=0.2):
         super(PoeticEmbedder, self).__init__()
-        self.poem_embedder = PoemEmbedder(embedding_dim)
+        self.poem_embedder = PoemEmbedder(poetic_dim)
         self.image_embedder = ImageEmbedder(sentiment_dim)
         self.alpha = alpha
 

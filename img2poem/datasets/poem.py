@@ -228,7 +228,7 @@ class PoemMultiMDatasetMasks(Dataset):
                 images.append(image)
             except Exception:
                 pass
-
+        
         tokens, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
         self.ids = torch.tensor(ids)
         self.tokens = torch.tensor(tokens)

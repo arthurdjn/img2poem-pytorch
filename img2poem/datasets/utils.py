@@ -86,8 +86,8 @@ def pad_bert_sequences(sequences, tokenizer, max_seq_len=6, cls_token='[CLS]', s
     tokens = [[cls_token] + sequence[0:max_seq_len-2] + [sep_token] for sequence in tokens]
     tokens_ids = [tokenizer.convert_tokens_to_ids(tks) for tks in tokens]
     # Pad the sequences
-    tokens_ids_padded = [tokens + [0] * (max_seq_len - len(tks)) for tks in tokens_ids]
-    attention_masks_int = [[int(x > 0) for x in tks] for tks in tokens_ids_padded]
+    tokens_ids_padded = [ids + [0] * (max_seq_len - len(ids)) for ids in tokens_ids]
+    attention_masks_int = [[int(x > 0) for x in ids] for ids in tokens_ids_padded]
     # To tensors
     tokens_ids = torch.tensor(tokens_ids_padded, dtype=torch.long)
     attention_masks = torch.tensor(attention_masks_int, dtype=torch.long)

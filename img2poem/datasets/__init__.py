@@ -9,3 +9,4 @@
 
 from .poem import *
 from .image import *
+from .poetic import *

@@ -38,6 +38,7 @@ The `API` is similar to `sklearn` or `TensorFlow`.
 
 # Basic imports
 import os
+from datetime import datetime
 from abc import abstractmethod, ABC
 from collections import defaultdict
 from torch.optim import lr_scheduler
@@ -75,8 +76,9 @@ class Trainer(ABC):
     def __init__(self, model, optimizer, criterion, 
                  rundir="runs", savedir="saves", patience=7, verbose=True):
         super(Trainer, self).__init__()
-        self.savedir = os.path.join(savedir, model.__class__.__name__)
-        self._rundir = os.path.join(rundir, model.__class__.__name__)
+        self.start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
+        self.savedir = os.path.join(savedir, model.__class__.__name__, self.start)
+        self._rundir = os.path.join(rundir, model.__class__.__name__, self.start)
         self._patience = patience
         self._verbose = verbose
         

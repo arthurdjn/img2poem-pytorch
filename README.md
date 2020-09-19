@@ -1,6 +1,7 @@
 ![Python](https://img.shields.io/badge/python-3.+-blue.svg)
 ![pytorch](https://img.shields.io/badge/pytorch-1.6.0-ee4c2c.svg)
-[![arxiv](https://img.shields.io/badge/paper-arxiv-red.svg)](https://arxiv.org/abs/1804.08473)
+[![arxiv](https://img.shields.io/badge/original%20paper-arxiv-red.svg)](https://arxiv.org/abs/1804.08473)
+[![website](https://img.shields.io/website?url=http%3A%2F%2Farthurdujardin.com%2Fproject%2Fimg2poem.html)](arthurdujardin.com/project/img2poem.html)
 
 
 <h1>img2poem-pytorch 🖼️ 📃</h1>
@@ -9,7 +10,7 @@
 
 <h3>Currently in progress ! 💻</h3>
 
-_Feel free to star the project or create an issue_
+_Feel free to star the project or open an issue !_
 
 <h1>Table of Contents</h1>
 
@@ -21,12 +22,13 @@ _Feel free to star the project or create an issue_
     - [2.1. Downloads](#21-downloads)
 - [3. Architecture](#3-architecture)
     - [3.1. Image](#31-image)
-        - [3.1.1. ResNet50 Object](#311-resnet50-object)
-        - [3.1.2. ResNet50 Scenes](#312-resnet50-scenes)
-        - [3.1.3. ResNet50 Sentiment](#313-resnet50-sentiment)
+        - [3.1.1. Object](#311-object)
+        - [3.1.2. Scenes](#312-scenes)
+        - [3.1.3. Sentiment](#313-sentiment)
     - [3.2. Poetic Alignment](#32-poetic-alignment)
     - [3.3. Generator](#33-generator)
-- [4. References](#4-references)
+- [4. Notebooks](#4-notebooks)
+- [5. References](#5-references)
 
 <!-- /TOC -->
 
@@ -57,15 +59,16 @@ $ cd img2poem-pytorch
 To train the models, you will need to download the datasets used in this project.
 
 The datasets used are:
-* ``PoemUniMDatasetMasked``: a dataset of poems only,
-* ``PoemMuliMDatasetMasked``: a dataset of paired poems and images,
-* ``PoeticEmbeddedDataset``: a dataset to align poems and images.
-* ``ImageSentimentDataset``: a dataset of images and polarities,
+
+- `PoemUniMDatasetMasked`: a dataset of poems only,
+- `PoemMuliMDatasetMasked`: a dataset of paired poems and images,
+- `PoeticEmbeddedDataset`: a dataset to align poems and images.
+- `ImageSentimentDataset`: a dataset of images and polarities,
 
 ## 2.1. Downloads
 
-To download the dataset, use the ``download()`` method, defined for all datasets.
-It will downloads poems and images in a ``root`` folder.
+To download the dataset, use the `download()` method, defined for all datasets.
+It will downloads poems and images in a `root` folder.
 
 For example, you can use:
 
@@ -78,11 +81,12 @@ dataset = ImageSentimentDataset.download(root='.data')
 # 3. Architecture
 
 The architecture is decomposed in two parts:
-* Encoder, used to extract poeticness from an image,
-* Decoder, used to generate a poem from a poetic space.
+
+- Encoder, used to extract poeticness from an image,
+- Decoder, used to generate a poem from a poetic space.
 
 The encoder is made of three CNN, used to extract scene, object, and sentiment information.
-To align these features in a poetic space, this encoder is used with a BERT model, to align visual feature with their paired poems.
+To align these features in a poetic space, this encoder is used with a [BERT](https://github.com/huggingface/transformers) model, to align visual feature with their paired poems.
 
 Then, the decoder works with a discriminator which evaluates the poeticness of a generated poem.
 
@@ -90,52 +94,81 @@ Then, the decoder works with a discriminator which evaluates the poeticness of a
 
 The visual encoder is made of three CNN.
 
-### 3.1.1. ResNet50 Object
+### 3.1.1. Object
 
-The object detection classifier is the vanilla ``ResNet50``, from TorchVision. More info [here](https://pytorch.org/docs/stable/torchvision/models.html#torchvision.models.resnet50).
+The object detection classifier is the vanilla `ResNet50`, from TorchVision. More info [here](https://pytorch.org/docs/stable/torchvision/models.html#torchvision.models.resnet50).
 
-### 3.1.2. ResNet50 Scenes
+### 3.1.2. Scenes
 
-The scene classifier is a ``ResNet50`` model fine tuned on the Places365 dataset.
+The scene classifier is a `ResNet50` model fine tuned on the Places365 dataset.
 You can find the weights on the MIT platform [here](http://places2.csail.mit.edu/models_places365/resnet50_places365.pth.tar).
 
-### 3.1.3. ResNet50 Sentiment
+### 3.1.3. Sentiment
 
-To train the visual sentiment classifier, use the ``ImageSentimentDataset`` with the ``ResNet50Sentiment`` model.
+To train the visual sentiment classifier, use the `ImageSentimentDataset` with the `ResNet50Sentiment` model.
 
-You can use the script ``scripts/train_resnet50.py`` to fine tune the model:
+You can use the script `scripts/train_resnet50.py` to fine tune the model:
 
 ```bash
 $ python scripts/train_resnet50.py
 ```
 
 ```bash
-Hyper params...
+0. Hyper params...
 ------------------------
 Batch size:       64
 Learning Rate:    5e-05
 Split ratio:      0.9
 ------------------------
 
-Loading the dataset...
+1. Loading the dataset...
 100%|█████████████████████████████████| 15613/15613 [01:16<00:00, 203.41it/s]
 
-Building the model...
+2. Building the model...
 done
 
-Training...
-Epoch 12/100 14%|█████                           | 7/199 [01:16<00:00, 203.41it/s, train loss=0.01034]
+3. Training...
+100%|██████████| 199/199 [01:18<00:00,  2.55it/s, train loss=0.030669]
+100%|██████████| 199/199 [00:24<00:00,  8.26it/s, eval loss=0.030008]
+	Training:   loss=0.025023
+	Evaluation: loss=0.024733
+Eval loss decreased (inf --> 0.024733).
+ Saving model...
+100%|██████████| 199/199 [01:17<00:00,  2.57it/s, train loss=0.030093]
+100%|██████████| 199/199 [00:24<00:00,  8.27it/s, eval loss=0.027973]
+	Training:   loss=0.024398
+	Evaluation: loss=0.024037
+Eval loss decreased (0.024733 --> 0.024037).
+ Saving model...
+100%|██████████| 199/199 [01:17<00:00,  2.57it/s, train loss=0.029633]
+100%|██████████| 199/199 [00:24<00:00,  8.28it/s, eval loss=0.029494]
+	Training:   loss=0.023714
+	Evaluation: loss=0.023400
+Eval loss decreased (0.024037 --> 0.023400).
+ Saving model...
+
 ...
 ```
 
 ## 3.2. Poetic Alignment
 
+To align visual features to a poetic space, the paired poem & image dataset is used (a.k.a `multim_poem.json`).
+
+Images and poems are both embedded:
+
+- the poems are embedded through a [BERT](https://github.com/huggingface/transformers) model,
+- and the images are embedded with the concatenation of the visual models (objects, Scenes and Sentiment).
+
+Then these two embeddings are aligned in a common poetic space.
+
 ## 3.3. Generator
 
-# 4. References
+# 4. Notebooks
+
+# 5. References
 
 - [1] Liu, Bei et al. “Beyond Narrative Description: Generating Poetry from Images by Multi-Adversarial Training”, 2018. _ACM Multimedia Conference - ACM MM2018._  
-[Paper](https://arxiv.org/abs/1804.08473) | [GitHub](https://github.com/researchmm/img2poem)
+  [Paper](https://arxiv.org/abs/1804.08473) | [GitHub](https://github.com/researchmm/img2poem)
 
 - [2] Li, Zhaoyang et al. “Neural Poetry Generation with Visual Inspiration.”, 2018.  
-[Paper](https://github.com/zhaoyanglijoey/Poem-From-Image/blob/master/419_PoemGen_Report.pdf) | [GitHub](https://github.com/zhaoyanglijoey/Poem-From-Image)
+  [Paper](https://github.com/zhaoyanglijoey/Poem-From-Image/blob/master/419_PoemGen_Report.pdf) | [GitHub](https://github.com/zhaoyanglijoey/Poem-From-Image)
