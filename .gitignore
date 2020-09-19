@@ -133,7 +133,8 @@ dmypy.json
 # Others
 examples/
 models/
-data/poems/multim_images/
+data/poems/multim/
+data/images/crowdflower/
 .data/
 *test*.ipynb
 readings/

@@ -5,3 +5,6 @@
 #          arthurd@ifi.uio.no
 # --------
 # Copyright (c) 2020 Arthur Dujardin
+
+
+from .resnet import *

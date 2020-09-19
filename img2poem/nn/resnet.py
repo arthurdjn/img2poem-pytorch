@@ -22,11 +22,9 @@ class ResNet50Object(nn.Module):
 
     * :attr:`backbone` (torch.nn.Module): Sequential modules of the pretrained ``ResNet50`` PyTorch model.
 
-    * :attr:`fc` (torch.nn.Module): Fully Connected layer, from ``hidden_features`` to ``out_features``.
-
     """
 
-    def __init__(self, hidden_features=2048, out_features=5):
+    def __init__(self):
         super(ResNet50Object, self).__init__()
         ResNet50 = resnet50(pretrained=True)
         modules = list(ResNet50.children())
@@ -34,12 +32,10 @@ class ResNet50Object(nn.Module):
         for param in ResNet50.parameters():
             param.requires_grad = False
         self.backbone = nn.Sequential(*modules)
-        self.fc = nn.Linear(hidden_features, out_features)
 
     def forward(self, x):
         out = self.backbone(x)
         out = out.view(out.size(0), -1)
-        out = self.fc(out)
         return out
 
 
@@ -52,12 +48,12 @@ class ResNet50Sentiment(nn.Module):
 
     """
 
-    def __init__(self, hidden_features=2048, out_features=5):
+    def __init__(self, out_features=5):
         super(ResNet50Sentiment, self).__init__()
         ResNet50 = resnet50(pretrained=True)
-        modules = list(ResNet50.children())
+        modules = list(ResNet50.children())[:-1]
         self.backbone = nn.Sequential(*modules)
-        self.fc = nn.Linear(hidden_features, out_features)
+        self.fc = nn.Linear(2048, out_features)
 
     def forward(self, x):
         out = self.backbone(x)
@@ -92,7 +88,7 @@ class ResNet50Scene(nn.Module):
         return out.view(x.size(0), -1)
 
     @classmethod
-    def download(cls, root):
+    def download(cls, root='.weights'):
         """Download the weights from ``Places365`` platform.
 
         Args:

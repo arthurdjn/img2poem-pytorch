@@ -29,41 +29,20 @@ It mainly uses Pytorch but tensorFlow was used for padding sequences.
 
 # Basic imports
 import os
+from pytorch_pretrained_bert.file_utils import filename_to_url
 from tqdm import tqdm
 from PIL import Image
 import pandas as pd
-from torchtext.data import Dataset, Example, Field
+import torch
+import torchtext.data
+from torch.utils.data import Dataset
+
 
 # img2poem package
-from .utils import download_image
+from .utils import download_image, pad_bert_sequence, pad_bert_sequences
 
 
-def tokenizer(text):
-    r"""Tokenize a string but keeps ``"\n"`` characters.
-
-    Args:
-        text (str): The poem in a string format.
-
-    Returns:
-        list: The words and new line characters that compose a poem.
-
-    Example:
-        >>> poem = "what is lovely never dies\nbut passes into other loveliness\nstar-dust or sea-foam flower or winged air"
-        >>> tokenizer(poem)
-            ['what', 'is', 'lovely', 'never', 'dies', '\n', 
-            'but', 'passes', 'into', 'other', 'loveliness', '\n', 
-            'star-dust', 'or', 'sea-foam', 'flower', 'or', 'winged', 'air']
-    """
-    lines = text.splitlines(keepends=True)
-    splits = []
-    for i, line in enumerate(lines):
-        splits.extend(line.split())
-        if i < len(lines) - 1:
-            splits.append("\n")
-    return splits
-
-
-class PoemUniMDataset(Dataset):
+class PoemUniMDataset(torchtext.data.Dataset):
     r"""UniM Poem Dataset used in the `paper <https://arxiv.org/abs/1804.08473>`__ 
     “Beyond Narrative Description: Generating Poetry from Images by Multi-Adversarial Training”
     from Liu, Bei et al. (2018).
@@ -72,26 +51,29 @@ class PoemUniMDataset(Dataset):
 
     * :attr:`poem` (list(str)): Tokenized poem.
 
+    .. note::
+        The default filename used to process the data is called ``unim_poem.json``.
+
     """
 
-    urls = ['https://github.com/researchmm/img2poem/blob/master/data/unim_poem.json']
+    url = ['https://github.com/researchmm/img2poem/blob/master/data/unim_poem.json']
     dirname = 'img2poem'
     name = 'unim'
 
-    def __init__(self, path):
+    def __init__(self, filename, tokenizer=None):
         # Define fields that compose an example
-        field_id = Field(batch_first=True, lower=False, include_lengths=False, pad_token=None)
-        field_poem = Field(batch_first=True, lower=False, include_lengths=True, pad_token=None, tokenize=tokenizer)
+        field_id = torchtext.data.Field(batch_first=True, lower=False, include_lengths=False, pad_token=None)
+        field_poem = torchtext.data.Field(batch_first=True, lower=False, include_lengths=True, pad_token=None, tokenize=tokenizer)
         fields = [("id", field_id), ("poem", field_poem)]
 
-        df = pd.read_json(path)
+        df = pd.read_json(filename)
         examples = []
-        for _, row in df.iterrows():
-            examples.append(Example.fromlist([row.id, row.poem], fields))
+        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+            examples.append(torchtext.data.Example.fromlist([row.id, row.poem], fields))
         super(PoemUniMDataset, self).__init__(examples, fields)
 
 
-class PoemMultiMDataset(Dataset):
+class PoemMultiMDataset(torchtext.data.Dataset):
     r"""MultiM Poem Dataset used in the `paper <https://arxiv.org/abs/1804.08473>`__ 
     “Beyond Narrative Description: Generating Poetry from Images by Multi-Adversarial Training”
     from Liu, Bei et al. (2018).
@@ -104,42 +86,173 @@ class PoemMultiMDataset(Dataset):
 
     * :attr:`poem` (list(str)): Tokenized poem.
 
+    .. note::
+        The default filename used to process the data is called ``multim_poem.json``.
+        The ``image_dir`` argument is used the location of the downloaded images.
+        
+    .. note::
+        Download the images from the csv file with the ``download`` method.
+
     """
 
-    urls = ['https://raw.githubusercontent.com/researchmm/img2poem/master/data/multim_poem.json']
+    url = 'https://raw.githubusercontent.com/researchmm/img2poem/master/data/multim_poem.json'
     dirname = 'img2poem'
     name = 'multim'
 
-    def __init__(self, path, tokenizer=None):
+    def __init__(self, filename, image_dir, tokenizer=None, transform=None):
         # Define fields that compose an example
-        field_id = Field(batch_first=True, lower=False, include_lengths=False, pad_token=None)
-        field_url = Field(batch_first=True, lower=False, include_lengths=False, pad_token=None)
-        field_image = Field(batch_first=True, lower=False, include_lengths=False, pad_token=None)
-        field_poem = Field(batch_first=True, lower=False, include_lengths=True, pad_token=None, tokenize=tokenizer)
+        field_id = torchtext.data.Field(batch_first=True, lower=False, include_lengths=False, pad_token=None)
+        field_url = torchtext.data.Field(batch_first=True, lower=False, include_lengths=False, pad_token=None)
+        field_image = torchtext.data.Field(batch_first=True, lower=False, include_lengths=False, pad_token=None)
+        field_poem = torchtext.data.Field(batch_first=True, lower=False, include_lengths=True, pad_token=None, tokenize=tokenizer)
         fields = [("id", field_id), ("url", field_url), ("image", field_image), ("poem", field_poem)]
 
-        # Check for directories
-        dirname = os.path.dirname(path)
-        dirimages = os.path.join(dirname, 'multim_images')
-        if not os.path.exists(dirimages):
-            os.makedirs(dirimages)
-        
         # Read the JSON data and download the images if they do not exist
-        df = pd.read_json(path)
+        df = pd.read_json(filename)
         examples = []
-        for _, row in tqdm(df.iterrows()):
+        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
             id = row.id
             url = row.image_url
             poem = row.poem
             # Load or download the images
-            image_file = os.path.join(dirimages, f'{id}.jpg')
+            image_file = os.path.join(image_dir, f'{id}.jpg')
+            try:
+                image = Image.open(image_file).convert('RGB')
+                if transform is not None:
+                    image = transform(image)
+                examples.append(torchtext.data.Example.fromlist([id, url, image, poem], fields))
+            except Exception:
+                pass
+
+        super(PoemMultiMDataset, self).__init__(examples, fields)
+
+    @classmethod
+    def download(cls, root='.data', **kwargs):
+        df = pd.read_json(cls.url)
+        outdir = os.path.join(root, cls.dirname, cls.name)
+        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+            id = row.id
+            url = row.image_url
+            image_file = os.path.join(outdir, f'{id}.jpg')
             try:
                 if not os.path.isfile(image_file):
                     download_image(url, image_file)
-                image = Image.open(image_file).convert('RGB')
-                # Create an example if the image is correctly loaded
-                examples.append(Example.fromlist([id, url, image, poem], fields))
-            except Exception as error:
-                print(f"{error}. The file {id} was not downloaded from the URL {url}.")
+            except Exception:
+                print(f"WARNING: Image {id} not downloaded from {url}.")
 
-        super(PoemMultiMDataset, self).__init__(examples, fields)
+        return PoemMultiMDataset(cls.url, outdir, **kwargs)
+
+
+class PoemUniMDatasetMasks(Dataset):
+    r"""UniM Poem Dataset with masks used in the `paper <https://arxiv.org/abs/1804.08473>`__ 
+    “Beyond Narrative Description: Generating Poetry from Images by Multi-Adversarial Training”
+    from Liu, Bei et al. (2018).
+
+    * :attr:`ids` (int): Identifier of the poem.
+
+    * :attr:`tokens` (torch.tensor): Tokenized ids of a poem.
+
+    * :attr:`masks` (torch.tensor): Tokenized ids masked.
+
+    .. note::
+        The default filename used to process the data is called ``unim_poem.json``.
+
+    """
+
+    url = 'https://github.com/researchmm/img2poem/blob/master/data/unim_poem.json'
+    dirname = 'img2poem'
+    name = 'unim'
+
+    def __init__(self, filename, tokenizer=None, max_seq_len=256):
+        super(PoemUniMDatasetMasks, self).__init__()
+        df = pd.read_json(filename)
+        ids = []
+        poems = []
+        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+            poems.append(row.poem)
+            ids.append(row.id)
+        tokens, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
+        self.ids = torch.tensor(ids)
+        self.tokens = torch.tensor(tokens)
+        self.masks = torch.tensor(masks)
+
+    def __len__(self):
+        return len(self.tokens)
+
+    def __getitem__(self, index):
+        return self.ids[index], self.tokens[index], self.masks[index]
+
+
+class PoemMultiMDatasetMasks(Dataset):
+    r"""MultiM Poem Dataset with masks used in the `paper <https://arxiv.org/abs/1804.08473>`__ 
+    “Beyond Narrative Description: Generating Poetry from Images by Multi-Adversarial Training”
+    from Liu, Bei et al. (2018).
+
+    * :attr:`id` (int): Identifier of the image & poem pair.
+
+    * :attr:`tokens` (torch.tensor): Tokenized ids of a poem.
+
+    * :attr:`masks` (torch.tensor): Tokenized ids masked.
+
+    * :attr:`image` (torch.tensor): Matrix of the image in RGB format.
+
+    .. note::
+        The default filename used to process the data is called ``multim_poem.json``.
+        The ``image_dir`` argument is used the location of the downloaded images.
+        
+    .. note::
+        Download the images from the csv file with the ``download`` method.
+
+    """
+
+    url = 'https://raw.githubusercontent.com/researchmm/img2poem/master/data/multim_poem.json'
+    dirname = 'img2poem'
+    name = 'multim'
+
+    def __init__(self, filename, image_dir, tokenizer=None, max_seq_len=256, transform=None):
+        super(PoemMultiMDatasetMasks, self).__init__()
+        df = pd.read_json(filename)
+        ids = []
+        poems = []
+        images = []
+        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+            id = row.id
+            poem = row.poem
+            image_file = os.path.join(image_dir, f'{id}.jpg')
+            try:
+                image = Image.open(image_file).convert('RGB')
+                if transform is not None:
+                    image = transform(image)
+                ids.append(id)
+                poems.append(poem)
+                images.append(image)
+            except Exception:
+                pass
+
+        tokens, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
+        self.ids = torch.tensor(ids)
+        self.tokens = torch.tensor(tokens)
+        self.masks = torch.tensor(masks)
+        self.images = torch.stack(images)
+
+    @classmethod
+    def download(cls, root='.data', **kwargs):
+        df = pd.read_json(cls.url)
+        outdir = os.path.join(root, cls.dirname, cls.name)
+        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+            id = row.id
+            url = row.image_url
+            image_file = os.path.join(outdir, f'{id}.jpg')
+            try:
+                if not os.path.isfile(image_file):
+                    download_image(url, image_file)
+            except Exception:
+                print(f"WARNING: Image {id} not downloaded from {url}.")
+
+        return PoemMultiMDatasetMasks(cls.url, outdir, **kwargs)
+
+    def __len__(self):
+        return len(self.tokens)
+
+    def __getitem__(self, index):
+        return self.ids[index], self.tokens[index], self.masks[index], self.images[index]

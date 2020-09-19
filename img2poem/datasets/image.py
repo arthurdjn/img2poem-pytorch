@@ -9,14 +9,13 @@
 
 # Basic imports
 import os
-import requests
+from tqdm import tqdm
 from PIL import Image
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
 # img2poem package
-from io import open_files
 from .utils import download_image
 
 
@@ -33,41 +32,65 @@ class ImageSentimentDataset(Dataset):
 
     * :attr:`labels` (torch.tensor): Image label (sentiment) for all images available in the csv.
 
+    .. note::
+        The default filename used to process the data is called ``image-Sentiment-polarity-DFE.csv``.
+        The ``image_dir`` argument is used the location of the downloaded images.
+
+    .. note::
+        Download the images from the csv file with the ``download`` method.
+
     """
 
     url = 'https://github.com/arthurdjn/img2poem-pytorch/raw/master/data/images/image-Sentiment-polarity-DFE.csv'
     dirname = 'crowdflower'
     name = 'sentiment'
-    labels2id = {
+
+    sentiment2label = {
         'Highly negative': 0,
         'Negative': 1,
         'Neutral': 2,
         'Positive': 3,
         'Highly positive': 4
     }
+    label2sentiment = {
+        0: 'Highly negative',
+        1: 'Negative',
+        2: 'Neutral',
+        3: 'Positive',
+        4: 'Highly positive'
+    }
 
-    def __init__(self, root, transform=None):
+    def __init__(self, filename, image_dir, transform=None):
         super(ImageSentimentDataset, self).__init__()
-        data = []
+        ids = []
+        images = []
         labels = []
-        for file in open_files(root, ext='jpg'):
-            # filename: template similar to '{sentiment}_{id}.jpg'
-            sentiment = file.split('_')[0]
-            image = Image.open(file).convert('RGB')
-            if transform:
-                image = transform(image)
-            data.append(image)
-            labels.append(sentiment)
-        self.data = torch.tensor(data)
+        df = pd.read_csv(filename)
+        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+            id = row['_unit_id']
+            sentiment = row['which_of_these_sentiment_scores_does_the_above_image_fit_into_best']
+            label = self.__class__.sentiment2label[sentiment]
+            image_file = os.path.join(image_dir, f'{id}.jpg')
+            try:
+                image = Image.open(image_file).convert('RGB')
+                if transform:
+                    image = transform(image)
+                ids.append(id)
+                images.append(image)
+                labels.append(label)
+            except Exception:
+                pass
+
+        self.ids = torch.tensor(ids)
+        self.images = torch.stack(images)
         self.labels = torch.tensor(labels)
 
     @classmethod
-    def download(cls, root='.data', transform=None):
+    def download(cls, root='.data', **kwargs):
         """Download the dataset from a url, and save the images to the ``root`` folder.
 
         Args:
             root (str, optional): Path to the saving directory. Defaults to '.data'.
-            transform (torchvision.transform, optional): List of transform operations on the images. Defaults to None.
 
         Returns:
             ImageSentimentDataset
@@ -76,26 +99,24 @@ class ImageSentimentDataset(Dataset):
         outdir = os.path.join(root, cls.dirname, cls.name)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-
         # Load the CSV data
         df = pd.read_csv(cls.url)
-        for _, row in df.iterrows():
+        trange = tqdm(df.iterrows(), position=0, leave=True, total=len(df))
+        for _, row in trange:
             id = row['_unit_id']
             url = row['imageurl']
-            sentiment = row['which_of_these_sentiment_scores_does_the_above_image_fit_into_best']
-            label = cls.labels[sentiment]
             # Download the image from the URL
-            image_file = os.path.join(outdir, f'{label}_{id}.jpg')
+            image_file = os.path.join(outdir, f'{id}.jpg')
             try:
                 if not os.path.isfile(image_file):
                     download_image(url, image_file)
-            except Exception as error:
-                print(f"{error}. The file {id} was not downloaded from the URL {url}.")
+            except Exception:
+                print(f"WARNING: Image {id} not downloaded from {url}.")
 
-        return ImageSentimentDataset(outdir, transform=transform)
+        return ImageSentimentDataset(cls.url, outdir, **kwargs)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.images)
 
     def __getitem__(self, index):
-        return self.data[index], self.labels[index]
+        return self.ids[index], self.images[index], self.labels[index]

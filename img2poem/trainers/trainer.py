@@ -21,32 +21,29 @@ The `API` is similar to `sklearn` or `TensorFlow`.
 
 
     class UNetTrainer(Trainer):
-        def train(train_iterator, criterion, optimizer):
+        def train(train_loader, criterion, optimizer):
             # train one single time the network
             pass
 
-        def eval(eval_iterator, criterion):
+        def eval(eval_loader, criterion):
             # evaluate one single time the network
             pass
 
 
     model = UNet(*args)
     trainer = UNetTrainer(model)
-    trainer.fit(epochs, train_iterator, eval_iterator, criterion, optimizer)
+    trainer.fit(epochs, train_loader, eval_loader, criterion, optimizer)
 
 """
 
 # Basic imports
+import os
 from abc import abstractmethod, ABC
 from collections import defaultdict
-import os
-import numpy as np
-import torch.nn as nn
-import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
-# AST package
+# img2poem package
 from .earlystopping import EarlyStopping
 
 
@@ -78,16 +75,17 @@ class Trainer(ABC):
     def __init__(self, model, optimizer, criterion, 
                  rundir="runs", savedir="saves", patience=7, verbose=True):
         super(Trainer, self).__init__()
+        self.savedir = os.path.join(savedir, model.__class__.__name__)
+        self._rundir = os.path.join(rundir, model.__class__.__name__)
+        self._patience = patience
+        self._verbose = verbose
+        
         self.model = model
         self.optimizer = optimizer
         self.criterion = criterion
         self.performace = defaultdict(list)
-        self.tensorboard = SummaryWriter(rundir)
-        self.early_stopping = EarlyStopping(patience=patience, verbose=verbose)
-        self.savedir = savedir
-        self._rundir = rundir
-        self._patience = patience
-        self._verbose = verbose
+        self.tensorboard = SummaryWriter(self.rundir)
+        self.early_stopping = EarlyStopping(patience=self.patience, verbose=self.verbose)
 
     @property
     def verbose(self):
@@ -114,22 +112,22 @@ class Trainer(ABC):
         self.tensorboard = SummaryWriter(value)
 
     @abstractmethod
-    def train(self, train_iterator, *args, **kwargs):
+    def train(self, train_loader, *args, **kwargs):
         raise NotImplementedError
 
     @abstractmethod
-    def eval(self, eval_iterator, *args, **kwargs):
+    def eval(self, eval_loader, *args, **kwargs):
         raise NotImplementedError
 
-    def fit(self, train_iterator, eval_iterator, *args, epochs=10, **kwargs):
+    def fit(self, train_loader, eval_loader, *args, epochs=10, **kwargs):
         # Train and evaluate the model epochs times
         for epoch in range(1, epochs+1):
             epoch_len = len(str(epochs))
             print(f"Epoch: {epoch:>{epoch_len}}/{epochs}")
 
             # Train and evaluate the model
-            train_loss = self.train(train_iterator, *args, **kwargs)
-            eval_loss = self.eval(eval_iterator, *args, **kwargs)
+            train_loss = self.train(train_loader, *args, **kwargs)
+            eval_loss = self.eval(eval_loader, *args, **kwargs)
             self.performace["train_loss"].append(train_loss)
             self.performace["eval_loss"].append(eval_loss)
             print(f"\tTraining:   loss={train_loss:.6f}")

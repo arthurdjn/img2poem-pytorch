@@ -11,6 +11,7 @@
 import os
 import requests
 from tqdm import tqdm
+import torch
 
 
 def download_weights(url, outdir='.weights'):
@@ -44,3 +45,19 @@ def download_weights(url, outdir='.weights'):
         print(f"{error}. Could not download the weights {outfile} from url {url}.")
 
     return os.path.join(outdir, outfile)
+
+
+def normalize(x, **kwargs):
+    r"""Normalize a tensor.
+    
+    .. math::
+        \text{normalize}(t) = \frac{t}{\text{norm(t)}}
+    
+    Args:
+        x (torch.tensor): Tensor to normalize.
+
+    Returns:
+        torch.tensor
+    """
+    out = x / torch.norm(x, **kwargs)
+    return out

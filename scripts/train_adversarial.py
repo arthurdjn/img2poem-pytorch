@@ -1,5 +1,5 @@
-# File: __init__.py
-# Creation: Saturday September 12th 2020
+# File: train_adversarial.py
+# Creation: Saturday September 19th 2020
 # Author: Arthur Dujardin
 # Contact: arthur.dujardin@ensg.eu
 #          arthurd@ifi.uio.no
@@ -7,5 +7,3 @@
 # Copyright (c) 2020 Arthur Dujardin
 
 
-from .poem import *
-from .image import *

@@ -1,5 +1,6 @@
 pytorch==1.6.0
 torchtext==0.6.0
 pytorch_pretrained_bert
+pytorch_transformers
 tensorflow
 keras

@@ -8,7 +8,7 @@
 
 
 # Basic imports
-from pytorch_transformers import BertTokenizer
+from pytorch_pretrained_bert import BertTokenizer
 import pandas as pd
 from torch.utils.data import TensorDataset
 import requests
