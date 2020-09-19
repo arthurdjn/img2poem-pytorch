@@ -28,7 +28,7 @@ class ResNet50SentimentTrainer(Trainer):
         self.model.train()
         train_losses = []
         trange = tqdm(train_loader, position=0, leave=True, total=len(train_loader))
-        for image, label in trange:
+        for _, image, label in trange:
             # Because gradients accumulate
             self.optimizer.zero_grad()
             # One batch prediction
@@ -52,7 +52,7 @@ class ResNet50SentimentTrainer(Trainer):
         eval_losses = []
         with torch.no_grad():
             trange = tqdm(eval_loader, position=0, leave=True, total=len(eval_loader))
-            for image, label in trange:
+            for _, image, label in trange:
                 # One eval step
                 image = image.to(device)  # B, C, H, W
                 label = label.to(device)  # B, C, H, W
