@@ -20,10 +20,12 @@ _Feel free to star the project or create an issue_
 - [2. Datasets](#2-datasets)
     - [2.1. Downloads](#21-downloads)
 - [3. Architecture](#3-architecture)
-    - [3.1. Training](#31-training)
-        - [3.1.1. Image](#311-image)
-        - [3.1.2. Poetic Alignment](#312-poetic-alignment)
-        - [3.1.3. Generator](#313-generator)
+    - [3.1. Image](#31-image)
+        - [3.1.1. ResNet50 Object](#311-resnet50-object)
+        - [3.1.2. ResNet50 Scenes](#312-resnet50-scenes)
+        - [3.1.3. ResNet50 Sentiment](#313-resnet50-sentiment)
+    - [3.2. Poetic Alignment](#32-poetic-alignment)
+    - [3.3. Generator](#33-generator)
 - [4. References](#4-references)
 
 <!-- /TOC -->
@@ -84,22 +86,20 @@ To align these features in a poetic space, this encoder is used with a BERT mode
 
 Then, the decoder works with a discriminator which evaluates the poeticness of a generated poem.
 
-## 3.1. Training
-
-### 3.1.1. Image
+## 3.1. Image
 
 The visual encoder is made of three CNN.
 
-#### 3.1.1. ResNet50 Object
+### 3.1.1. ResNet50 Object
 
 The object detection classifier is the vanilla ``ResNet50``, from TorchVision. More info [here](https://pytorch.org/docs/stable/torchvision/models.html#torchvision.models.resnet50).
 
-#### 3.1.2. ResNet50 Scenes
+### 3.1.2. ResNet50 Scenes
 
 The scene classifier is a ``ResNet50`` model fine tuned on the Places365 dataset.
 You can find the weights on the MIT platform [here](http://places2.csail.mit.edu/models_places365/resnet50_places365.pth.tar).
 
-#### 3.1.3. ResNet50 Sentiment
+### 3.1.3. ResNet50 Sentiment
 
 To train the visual sentiment classifier, use the ``ImageSentimentDataset`` with the ``ResNet50Sentiment`` model.
 
@@ -128,9 +128,9 @@ Epoch 12/100 14%|█████                           | 7/199 [01:16<00:00,
 ...
 ```
 
-### 3.1.2. Poetic Alignment
+## 3.2. Poetic Alignment
 
-### 3.1.3. Generator
+## 3.3. Generator
 
 # 4. References
 
