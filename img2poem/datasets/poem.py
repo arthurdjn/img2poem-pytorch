@@ -118,7 +118,7 @@ class PoemMultiMDataset(Dataset):
         ids = []
         poems = []
         images = []
-        for _, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
+        for idx, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
             id = row.id
             poem = row.poem.replace("\n", " ; ")
             image_file = os.path.join(image_dir, f'{id}.jpg')
@@ -129,6 +129,10 @@ class PoemMultiMDataset(Dataset):
                 images.append(image)
             except Exception:
                 pass
+
+            if idx > 99:
+                break
+
 
         token_ids, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
         self.ids = torch.tensor(ids)
@@ -152,7 +156,8 @@ class PoemMultiMDataset(Dataset):
 
         return PoemMultiMDataset(cls.url, outdir, **kwargs)
 
-    def default_transform(self):
+    @staticmethod
+    def default_transform():
         transform = transforms.Compose([
             transforms.Resize(224),
             transforms.CenterCrop(224),

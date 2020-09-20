@@ -53,7 +53,7 @@ class PoemEmbedder(nn.Module):
         """Fine tune the BERT model by setting ``requires_grad = False`` to some learnable parameters.
         Only the classifier layer (and fully connected layer from the poem embedder)
         are learned.
-        
+
         .. note::
             You should use this method before feeding the model to your training session.
             If fine tuned, the bert model has 76,900 learnable parameters.
@@ -62,14 +62,12 @@ class PoemEmbedder(nn.Module):
         for param in self.parameters():
             param.requires_grad = False
         # Train the classifier
-        for param in self.bert.classifier.parameters():
-            param.requires_grad = True
         for param in self.fc.parameters():
             param.requires_grad = True
 
     def full_tune(self):
         """Fully tune the BERT model.
-        
+
         .. warning::
             If all parameters are learnable (i.e. the model is not in fine tune mode)
             then you may face issue of memory.
@@ -108,8 +106,23 @@ class ImageEmbedder(nn.Module):
         out = torch.cat([out1, out2, out3], dim=1)
         return self.fc(out)
 
-    def from_pretrained(self, object_weights=None, sentiment_weights=None, scene_weights=None):
-        pass
+    def load_state_dict(self, object_state_dict=None, sentiment_state_dict=None, scene_state_dict=None):
+        """Load weights from individual ResNet checkpoints.
+
+        Args:
+            object_state_dict ([type], optional): ResNet50Object checkpoint. Defaults to None.
+            sentiment_state_dict ([type], optional): ResNet50Sentiment checkpoint. Defaults to None.
+            scene_state_dict ([type], optional): ResNet50Scene checkpoint. Defaults to None.
+        """
+        if object_state_dict is not None:
+            checkpoint = torch.load(object_state_dict)
+            self.image_embedder.object.load_state_dict(checkpoint['state_dict'])
+        if sentiment_state_dict is not None:
+            checkpoint = torch.load(sentiment_state_dict)
+            self.image_embedder.sentiment.load_state_dict(checkpoint['state_dict'])
+        if scene_state_dict is not None:
+            checkpoint = torch.load(scene_state_dict)
+            self.image_embedder.scene.load_state_dict(checkpoint['state_dict'])
 
 
 class PoeticEmbedder(nn.Module):
@@ -136,3 +149,7 @@ class PoeticEmbedder(nn.Module):
         image2 = self.image_embedder(image2)
         loss = rank_loss(poem1, image1, poem2, image2, alpha=self.alpha)
         return loss, (poem1, image1, poem2, image2)
+
+    def from_pretrained(self, **kwargs):
+        self.poem_embedder.fine_tune()
+        self.image_embedder.load_state_dict(**kwargs)
