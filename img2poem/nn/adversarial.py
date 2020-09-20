@@ -12,6 +12,15 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 
 
+class PoeticDecoder(nn.Module):
+    def __init__(self):
+        super(PoeticDecoder, self).__init__()
+        pass
+
+    def forward(self, x, lengths):
+        pass
+
+
 class PoeticDiscriminator(nn.Module):
     """Poetic Discriminator used to classify generated poem from the poetic space to real poems.
 
@@ -51,10 +60,19 @@ class PoeticDiscriminator(nn.Module):
         return out
 
 
-class PoeticDecoder(nn.Module):
+class GeneratorFromImage(nn.Module):
     def __init__(self):
-        super(PoeticDecoder, self).__init__()
+        super(GeneratorFromImage, self).__init__()
         pass
 
-    def forward(self, x, lengths):
+    def forward(self, images):
+        pass
+
+
+class GeneratorFromPoem(nn.Module):
+    def __init__(self):
+        super(GeneratorFromPoem, self).__init__()
+        pass
+
+    def forward(self, poems):
         pass

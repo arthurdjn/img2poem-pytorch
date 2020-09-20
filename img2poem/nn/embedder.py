@@ -10,7 +10,7 @@
 # Basic imports
 import torch
 import torch.nn as nn
-from pytorch_pretrained_bert import BertForMaskedLM, BertModel
+from transformers import BertModel
 
 # img2poem package
 from .resnet import ResNet50Object, ResNet50Sentiment, ResNet50Scene
@@ -53,7 +53,7 @@ class ImageEmbedder(nn.Module):
         super(ImageEmbedder, self).__init__()
         self.object = ResNet50Object()
         self.sentiment = ResNet50Sentiment(sentiment_dim)
-        self.scene = ResNet50Scene.download()
+        self.scene = ResNet50Scene()
         self.fc = nn.Linear(2048*2+sentiment_dim, poetic_dim)
 
     def forward(self, x):
@@ -64,6 +64,9 @@ class ImageEmbedder(nn.Module):
         # out = B, (2048 + 2048 + sentiment_dim)
         out = torch.cat([out1, out2, out3], dim=1)
         return self.fc(out)
+    
+    def from_pretrained(self, object_weights=None, sentiment_weights=None, scene_weights=None):
+        pass
 
 
 class PoeticEmbedder(nn.Module):

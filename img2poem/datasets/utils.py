@@ -8,12 +8,8 @@
 
 
 # Basic imports
-from pytorch_pretrained_bert import BertTokenizer
-import pandas as pd
-from torch.utils.data import TensorDataset
 import requests
 import os
-import torch
 
 
 def download_image(url, outname, outdir='./'):
@@ -40,7 +36,7 @@ def download_image(url, outname, outdir='./'):
                   f"Could not download the image {outdir}/{outname} from the URL {url}.")
 
 
-def pad_bert_sequence(sequence, tokenizer, max_seq_len=256, cls_token='[CLS]', sep_token='[SEP]'):
+def pad_bert_sequence(sequence, tokenizer, max_seq_len=512, cls_token='[CLS]', sep_token='[SEP]'):
     """Pad a sequence (in text format) with the BERT tokenizer. It add a ``[CLS]`` and ``[SEP]`` tokens
     at the begining and end of the truncated sentence (the sentence has ``max_seq_len`` length).
 
@@ -61,13 +57,10 @@ def pad_bert_sequence(sequence, tokenizer, max_seq_len=256, cls_token='[CLS]', s
     # Pad the sequences
     tokens_ids_padded = tokens_ids + [0] * (max_seq_len - len(tokens_ids))
     attention_masks = [int(x > 0) for x in tokens_ids_padded]
-    # To tensors
-    tokens_ids = torch.tensor(tokens_ids_padded, dtype=torch.long)
-    attention_masks = torch.tensor(attention_masks, dtype=torch.long)
-    return tokens_ids, attention_masks
+    return tokens_ids_padded, attention_masks
 
 
-def pad_bert_sequences(sequences, tokenizer, max_seq_len=6, cls_token='[CLS]', sep_token='[SEP]'):
+def pad_bert_sequences(sequences, tokenizer, max_seq_len=512, cls_token='[CLS]', sep_token='[SEP]'):
     """Pad a list of sequences (in text format) with the BERT tokenizer. It add a ``[CLS]`` and ``[SEP]`` tokens
     at the begining and end of the truncated sentences (the sentences have ``max_seq_len`` length).
 
@@ -87,8 +80,5 @@ def pad_bert_sequences(sequences, tokenizer, max_seq_len=6, cls_token='[CLS]', s
     tokens_ids = [tokenizer.convert_tokens_to_ids(tks) for tks in tokens]
     # Pad the sequences
     tokens_ids_padded = [ids + [0] * (max_seq_len - len(ids)) for ids in tokens_ids]
-    attention_masks_int = [[int(x > 0) for x in ids] for ids in tokens_ids_padded]
-    # To tensors
-    tokens_ids = torch.tensor(tokens_ids_padded, dtype=torch.long)
-    attention_masks = torch.tensor(attention_masks_int, dtype=torch.long)
-    return tokens_ids, attention_masks
+    attention_masks = [[int(x > 0) for x in ids] for ids in tokens_ids_padded]
+    return tokens_ids_padded, attention_masks

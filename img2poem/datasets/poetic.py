@@ -11,10 +11,10 @@
 import random
 
 # img2poem package
-from .poem import PoemMultiMDatasetMasks
+from .poem import PoemMultiMDataset
 
 
-class PoeticEmbeddedDataset(PoemMultiMDatasetMasks):
+class PoeticEmbeddedDataset(PoemMultiMDataset):
     """Dataset used to embed poectiness from paired images and poems.
     Usually, this dataset is used with ``PoeticEmbedder`` model.
 
@@ -35,22 +35,21 @@ class PoeticEmbeddedDataset(PoemMultiMDatasetMasks):
 
     """
 
-    def __init__(self, filename, image_dir, tokenizer=None, max_seq_len=256, transform=None):
-        super(PoeticEmbeddedDataset, self).__init__(filename, image_dir, tokenizer=tokenizer, max_seq_len=max_seq_len, transform=transform)
+    def __init__(self, filename, image_dir, **kwargs):
+        super(PoeticEmbeddedDataset, self).__init__(filename, image_dir, **kwargs)
 
     def __len__(self):
-        return len(self.tokens)
+        return len(self.token_ids)
 
     def __getitem__(self, index):
-
-        index2 = random.randrange(len(self.tokens))
+        index2 = random.randrange(len(self.token_ids))
         while index2 == index:
-            index2 = random.randrange(len(self.tokens))
+            index2 = random.randrange(len(self.token_ids))
 
         id1 = self.ids[index]
         id2 = self.ids[index2]
-        poem1 = self.tokens[index]
-        poem2 = self.tokens[index2]
+        poem1 = self.token_ids[index]
+        poem2 = self.token_ids[index2]
         mask1 = self.masks[index]
         mask2 = self.masks[index2]
         image1 = self.images[index]

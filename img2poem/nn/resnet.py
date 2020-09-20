@@ -26,12 +26,10 @@ class ResNet50Object(nn.Module):
 
     def __init__(self):
         super(ResNet50Object, self).__init__()
-        ResNet50 = resnet50(pretrained=True)
-        modules = list(ResNet50.children())
+        self.backbone = resnet50(pretrained=True)
         # Do not train this model
-        for param in ResNet50.parameters():
+        for param in self.parameters():
             param.requires_grad = False
-        self.backbone = nn.Sequential(*modules)
 
     def forward(self, x):
         out = self.backbone(x)
@@ -50,9 +48,8 @@ class ResNet50Sentiment(nn.Module):
 
     def __init__(self, out_features=5):
         super(ResNet50Sentiment, self).__init__()
-        ResNet50 = resnet50(pretrained=True)
-        modules = list(ResNet50.children())[:-1]
-        self.backbone = nn.Sequential(*modules)
+        # Fine tune this model
+        self.backbone = resnet50(pretrained=True)
         self.fc = nn.Linear(2048, out_features)
 
     def forward(self, x):
@@ -73,24 +70,16 @@ class ResNet50Scene(nn.Module):
     dirname = 'places365'
     name = 'resnet50'
 
-    def __init__(self, weights_path):
+    def __init__(self):
         super(ResNet50Scene, self).__init__()
-        ResNet50 = resnet50(num_classes=365)
-        checkpoint = torch.load(weights_path)
-        state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()}
-        ResNet50.load_state_dict(state_dict)
-        # Do not train this model
-        for param in ResNet50.parameters():
-            param.requires_grad = False
-        modules = list(ResNet50.children())
-        self.backbone = nn.Sequential(*modules)
+        self.backbone = resnet50(num_classes=365)
 
     def forward(self, x):
         out = self.backbone(x)
         return out.view(x.size(0), -1)
 
     @classmethod
-    def download(cls, root='.data'):
+    def from_pretrained(cls, root='.data'):
         """Download the weights from ``Places365`` platform.
 
         Args:
@@ -99,8 +88,18 @@ class ResNet50Scene(nn.Module):
         Returns:
             ResNet50Scene
         """
+        # Download the weights
         outdir = os.path.join(root, cls.dirname, cls.name)
         weights_path = os.path.join(outdir, cls.url.split('/')[-1])
         if not os.path.exists(weights_path):
             weights_path = download_weights(cls.url, outdir)
-        return ResNet50Scene(weights_path)
+        # Load the model from saved weights
+        model = ResNet50Scene()
+        checkpoint = torch.load(weights_path)
+        state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()}
+        model.backbone.load_state_dict(state_dict)
+        # Do not train the model if pretrained
+        for param in model.parameters():
+            param.requires_grad = False
+
+        return model
