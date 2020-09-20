@@ -168,3 +168,4 @@ class Trainer(ABC):
             if self.early_stopping.early_stop:
                 print(f"Early stopping at epoch {epoch}...")
                 return
+            print()

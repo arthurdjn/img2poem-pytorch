@@ -122,30 +122,35 @@ Split ratio:      0.9
 ------------------------
 
 1. Loading the dataset...
-100%|█████████████████████████████████| 15613/15613 [01:16<00:00, 203.41it/s]
+Loading: 100%|█████████████████████████████████| 15613/15613 [01:16<00:00, 203.41it/s]
 
 2. Building the model...
 done
 
 3. Training...
-100%|██████████| 199/199 [01:18<00:00,  2.55it/s, train loss=0.030669]
-100%|██████████| 199/199 [00:24<00:00,  8.26it/s, eval loss=0.030008]
+Epoch 1/100
+  Training: 100%|██████████| 199/199 [01:18<00:00,  2.55it/s, train loss=0.030669]
+Evaluation: 100%|██████████| 199/199 [00:24<00:00,  8.26it/s, eval loss=0.030008]
 	Training:   loss=0.025023
 	Evaluation: loss=0.024733
 Eval loss decreased (inf --> 0.024733).
- Saving model...
-100%|██████████| 199/199 [01:17<00:00,  2.57it/s, train loss=0.030093]
-100%|██████████| 199/199 [00:24<00:00,  8.27it/s, eval loss=0.027973]
+→ Saving model...
+
+Epoch 2/100
+  Training: 100%|██████████| 199/199 [01:17<00:00,  2.57it/s, train loss=0.030093]
+Evaluation: 100%|██████████| 199/199 [00:24<00:00,  8.27it/s, eval loss=0.027973]
 	Training:   loss=0.024398
 	Evaluation: loss=0.024037
 Eval loss decreased (0.024733 --> 0.024037).
- Saving model...
-100%|██████████| 199/199 [01:17<00:00,  2.57it/s, train loss=0.029633]
-100%|██████████| 199/199 [00:24<00:00,  8.28it/s, eval loss=0.029494]
+→ Saving model...
+
+Epoch 3/100
+  Training: 100%|██████████| 199/199 [01:17<00:00,  2.57it/s, train loss=0.029633]
+Evaluation: 100%|██████████| 199/199 [00:24<00:00,  8.28it/s, eval loss=0.029494]
 	Training:   loss=0.023714
 	Evaluation: loss=0.023400
 Eval loss decreased (0.024037 --> 0.023400).
- Saving model...
+→ Saving model...
 
 ...
 ```

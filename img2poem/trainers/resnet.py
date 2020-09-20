@@ -28,7 +28,7 @@ class ResNet50SentimentTrainer(Trainer):
     def train(self, train_loader):
         self.model.train()
         train_losses = []
-        trange = tqdm(train_loader, desc="Training", position=0, leave=True, total=len(train_loader), file=sys.stdout)
+        trange = tqdm(train_loader, desc="  Training", position=0, leave=True, total=len(train_loader), file=sys.stdout)
         for _, image, label in trange:
             # Because gradients accumulate
             self.optimizer.zero_grad()

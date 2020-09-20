@@ -121,11 +121,19 @@ class ResNet50Scene(nn.Module):
         weights_path = os.path.join(outdir, cls.url.split('/')[-1])
         if not os.path.exists(weights_path):
             weights_path = download_weights(cls.url, outdir)
+        
         # Load the model from saved weights
-        model = ResNet50Scene()
         checkpoint = torch.load(weights_path)
-        state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()}
-        model.backbone.load_state_dict(state_dict)
+        checkpoint['state_dict'].pop('fc.weight', None)
+        checkpoint['state_dict'].pop('fc.bias', None)
+        state_dict = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
+        resnet = resnet50(num_classes=365)
+        resnet.load_state_dict(state_dict)
+        modules = list(resnet.children())[:-1]  # ignore the classifier layer
+        
+        # Update the backbone from the ResNet Scene
+        model = ResNet50Scene()
+        model.backbone = nn.Sequential(*modules)
         # Do not train the model if pretrained
         for param in model.parameters():
             param.requires_grad = False

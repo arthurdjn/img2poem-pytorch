@@ -25,7 +25,7 @@ class PoeticEmbedderTrainer(Trainer):
     def train(self, train_loader):
         self.model.train()
         train_losses = []
-        trange = tqdm(train_loader, desc="Training", position=0, leave=True, total=len(train_loader), file=sys.stdout)
+        trange = tqdm(train_loader, desc="  Training", position=0, leave=True, total=len(train_loader), file=sys.stdout)
         for _, poem1, mask1, image1, _, poem2, mask2, image2 in trange:
             # Because gradients accumulate
             self.optimizer.zero_grad()

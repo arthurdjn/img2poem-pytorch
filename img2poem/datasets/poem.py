@@ -130,10 +130,6 @@ class PoemMultiMDataset(Dataset):
             except Exception:
                 pass
 
-            if idx > 99:
-                break
-
-
         token_ids, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
         self.ids = torch.tensor(ids)
         self.token_ids = torch.tensor(token_ids)

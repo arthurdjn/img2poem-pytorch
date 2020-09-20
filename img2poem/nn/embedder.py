@@ -106,7 +106,7 @@ class ImageEmbedder(nn.Module):
         out = torch.cat([out1, out2, out3], dim=1)
         return self.fc(out)
 
-    def load_state_dict(self, object_state_dict=None, sentiment_state_dict=None, scene_state_dict=None):
+    def from_pretrained(self, object_state=None, sentiment_state=None, scene_state=None):
         """Load weights from individual ResNet checkpoints.
 
         Args:
@@ -114,16 +114,31 @@ class ImageEmbedder(nn.Module):
             sentiment_state_dict ([type], optional): ResNet50Sentiment checkpoint. Defaults to None.
             scene_state_dict ([type], optional): ResNet50Scene checkpoint. Defaults to None.
         """
-        if object_state_dict is not None:
-            checkpoint = torch.load(object_state_dict)
-            self.image_embedder.object.load_state_dict(checkpoint['state_dict'])
-        if sentiment_state_dict is not None:
-            checkpoint = torch.load(sentiment_state_dict)
-            self.image_embedder.sentiment.load_state_dict(checkpoint['state_dict'])
-        if scene_state_dict is not None:
-            checkpoint = torch.load(scene_state_dict)
-            self.image_embedder.scene.load_state_dict(checkpoint['state_dict'])
+        if object_state is not None:
+            checkpoint = torch.load(object_state)
+            self.object.load_state_dict(checkpoint['state_dict'])
+        if sentiment_state is not None:
+            checkpoint = torch.load(sentiment_state)
+            # Remove the classifier layer from the state dict, if exists
+            checkpoint['state_dict'].pop("fc.weight", None)
+            checkpoint['state_dict'].pop("fc.bias", None)
+            self.sentiment.load_state_dict(checkpoint['state_dict'])
+        if scene_state is not None:
+            checkpoint = torch.load(scene_state)
+            # Remove the classifier layer from the state dict, if exists
+            checkpoint['state_dict'].pop("fc.weight", None)
+            checkpoint['state_dict'].pop("fc.bias", None)
+            self.scene.load_state_dict(checkpoint['state_dict'])
 
+    def fine_tune(self):
+        for param in self.object.parameters():
+            param.requires_grad = False
+        for param in self.sentiment.parameters():
+            param.requires_grad = False
+        for param in self.scene.parameters():
+            param.requires_grad = False
+        for param in self.fc.parameters():
+            param.requires_grad = True
 
 class PoeticEmbedder(nn.Module):
     """Model used to embed a pair of poem and image in a poetic space.
@@ -151,5 +166,8 @@ class PoeticEmbedder(nn.Module):
         return loss, (poem1, image1, poem2, image2)
 
     def from_pretrained(self, **kwargs):
+        self.image_embedder.from_pretrained(**kwargs)
+
+    def fine_tune(self):
         self.poem_embedder.fine_tune()
-        self.image_embedder.load_state_dict(**kwargs)
+        self.image_embedder.fine_tune()
