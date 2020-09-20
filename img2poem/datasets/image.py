@@ -66,7 +66,7 @@ class ImageSentimentDataset(Dataset):
         images = []
         labels = []
         df = pd.read_csv(filename)
-        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+        for _, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
             id = row['_unit_id']
             sentiment = row['which_of_these_sentiment_scores_does_the_above_image_fit_into_best']
             label = self.__class__.sentiment2label[sentiment]
@@ -101,7 +101,7 @@ class ImageSentimentDataset(Dataset):
             os.makedirs(outdir)
         # Load the CSV data
         df = pd.read_csv(cls.url)
-        trange = tqdm(df.iterrows(), position=0, leave=True, total=len(df))
+        trange = tqdm(df.iterrows(), desc='Downloading', position=0, leave=True, total=len(df))
         for _, row in trange:
             id = row['_unit_id']
             url = row['imageurl']

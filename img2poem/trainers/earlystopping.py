@@ -67,7 +67,7 @@ class EarlyStopping(object):
             os.makedirs(savedir)
         if self.verbose:
             print(f"Eval loss decreased ({self.val_loss_min:.6f} --> {eval_loss:.6f})")
-            print(" Saving model...")
+            print("→ Saving model...")
         filepath = os.path.join(savedir, f"checkpoint_{epoch}_{eval_loss:.6f}.pth.tar")
         torch.save(model, filepath)
         self.val_loss_min = eval_loss

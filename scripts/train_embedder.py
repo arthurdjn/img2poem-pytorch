@@ -64,4 +64,4 @@ if __name__ == "__main__":
     trainer = PoeticEmbedderTrainer(model, optimizer, criterion)
 
     print("\n3. Training...")
-    trainer.fit(train_loader, eval_loader, epochs=20, device="cpu")
+    trainer.fit(train_loader, eval_loader, epochs=20)

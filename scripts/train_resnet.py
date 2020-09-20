@@ -56,10 +56,11 @@ if __name__ == "__main__":
     eval_loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     print("\n2. Building the model...")
-    model = ResNet50Sentiment(out_features=5)
+    # We train the model to classify five types of sentiments
+    model = ResNet50Sentiment(num_classes=5)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adadelta(model.parameters(), lr=LR)
     trainer = ResNet50SentimentTrainer(model, optimizer, criterion)
 
     print("\n3. Training...")
-    trainer.fit(train_loader, eval_loader, epochs=20, device="cpu")
+    trainer.fit(train_loader, eval_loader, epochs=20)

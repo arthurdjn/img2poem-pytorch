@@ -67,7 +67,7 @@ class PoemUniMDataset(Dataset):
         df = pd.read_json(filename)
         ids = []
         poems = []
-        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+        for _, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
             id = row.id
             poem = row.poem.replace("\n", " ; ")
             poems.append(poem)
@@ -118,7 +118,7 @@ class PoemMultiMDataset(Dataset):
         ids = []
         poems = []
         images = []
-        for idx, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+        for _, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
             id = row.id
             poem = row.poem.replace("\n", " ; ")
             image_file = os.path.join(image_dir, f'{id}.jpg')
@@ -129,9 +129,6 @@ class PoemMultiMDataset(Dataset):
                 images.append(image)
             except Exception:
                 pass
-            
-            if idx > 100:
-                break
 
         token_ids, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
         self.ids = torch.tensor(ids)
@@ -143,7 +140,7 @@ class PoemMultiMDataset(Dataset):
     def download(cls, root='.data', **kwargs):
         df = pd.read_json(cls.url)
         outdir = os.path.join(root, cls.dirname, cls.name)
-        for _, row in tqdm(df.iterrows(), position=0, leave=True, total=len(df)):
+        for _, row in tqdm(df.iterrows(), desc='Downloading', position=0, leave=True, total=len(df)):
             id = row.id
             url = row.image_url
             image_file = os.path.join(outdir, f'{id}.jpg')

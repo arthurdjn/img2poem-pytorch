@@ -26,14 +26,19 @@ class ResNet50Object(nn.Module):
 
     def __init__(self):
         super(ResNet50Object, self).__init__()
-        self.backbone = resnet50(pretrained=True)
+        ResNet50 = resnet50(pretrained=True)
+        modules = list(ResNet50.children())[:-1]
         # Do not train this model
-        for param in self.parameters():
+        for param in ResNet50.parameters():
             param.requires_grad = False
+        self.backbone = nn.Sequential(*modules)
 
     def forward(self, x):
+        # image = B, 3, 224, 224
         out = self.backbone(x)
+        # out = B, 2048, 1, 1
         out = out.view(out.size(0), -1)
+        # out = B, 2048
         return out
 
 
@@ -44,18 +49,35 @@ class ResNet50Sentiment(nn.Module):
 
     * :attr:`fc` (torch.nn.Module): Fully Connected layer, from ``hidden_features`` to ``out_features``.
 
+    .. note::
+        This model has a classifier layer, used when the argument ``num_classes`` is not ``None``.
+        This layer is used to train the model to recognize polarities from images.
+        Once the model is trained, we no longer need to classify sentiments from images.
+        Instead, we take the feature vector just before the last layer to feed the
+        deep coupled visual-poetic model. This vector is concatenated with other visual vectors,
+        like scene and object recognition.
+
     """
 
-    def __init__(self, out_features=5):
+    def __init__(self, num_classes=None):
         super(ResNet50Sentiment, self).__init__()
-        # Fine tune this model
-        self.backbone = resnet50(pretrained=True)
-        self.fc = nn.Linear(2048, out_features)
+        ResNet50 = resnet50(pretrained=True)
+        modules = list(ResNet50.children())[:-1]
+        self.backbone = nn.Sequential(*modules)
+        # Create a classifier layer, used when training this model only
+        self.num_classes = num_classes
+        if num_classes is not None:
+            self.fc = nn.Linear(2048, num_classes)
 
-    def forward(self, x):
-        out = self.backbone(x)
+    def forward(self, image):
+        # image = B, 3, 224, 224
+        out = self.backbone(image)
+        # out = B, 2048, 1, 1
         out = out.view(out.size(0), -1)
-        out = self.fc(out)
+        # out = B, 2048
+        if self.num_classes is not None:
+            out = self.fc(out)
+            # out = B, num_classes
         return out
 
 
@@ -72,11 +94,17 @@ class ResNet50Scene(nn.Module):
 
     def __init__(self):
         super(ResNet50Scene, self).__init__()
-        self.backbone = resnet50(num_classes=365)
+        ResNet50 = resnet50(num_classes=365)
+        modules = list(ResNet50.children())[:-1]  # ignore the classifier layer
+        self.backbone = nn.Sequential(*modules)
 
     def forward(self, x):
+        # image = B, 3, 224, 224
         out = self.backbone(x)
-        return out.view(x.size(0), -1)
+        # out = B, 2048, 1, 1
+        out = out.view(out.size(0), -1)
+        # out = B, 2048
+        return out
 
     @classmethod
     def from_pretrained(cls, root='.data'):

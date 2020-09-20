@@ -7,7 +7,6 @@
 # Copyright (c) 2020 Arthur Dujardin
 
 
-
 r"""
 A ``Trainer`` is used to wrap a `PyTorch` ``Module`` to provide inner methods to train, evaluate and fit a model 
 just like for `TensorFlow` models.
@@ -68,20 +67,21 @@ class Trainer(ABC):
     * :attr:`savedir` (str): saving directory for models.
 
     * :attr:`patience` (int): number of epochs to wait after last time evaluation loss improved.
-    
+
     * :attr:`verbose` (bool): if ``True`` display log messages in the console. Default to ``False``.
 
     """
 
-    def __init__(self, model, optimizer, criterion, 
-                 rundir="runs", savedir="saves", patience=7, verbose=True):
+    def __init__(self, model, optimizer, criterion,
+                 rundir="runs", savedir="saves", patience=10, verbose=True, device="cpu"):
         super(Trainer, self).__init__()
         self.start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
         self.savedir = os.path.join(savedir, model.__class__.__name__, self.start)
         self._rundir = os.path.join(rundir, model.__class__.__name__, self.start)
         self._patience = patience
         self._verbose = verbose
-        
+        self.device = device
+
         self.model = model
         self.optimizer = optimizer
         self.criterion = criterion
@@ -93,25 +93,33 @@ class Trainer(ABC):
     def verbose(self):
         return self._verbose
 
-    @property
-    def patience(self):
-        return self._patience
-
-    @property
-    def rundir(self):
-        return self._rundir
-
     @verbose.setter
     def verbose(self, value):
         self.early_stopping = EarlyStopping(self.patience, value)
+
+    @property
+    def patience(self):
+        return self._patience
 
     @patience.setter
     def patience(self, value):
         self.early_stopping = EarlyStopping(value, self.verbose)
 
+    @property
+    def rundir(self):
+        return self._rundir
+
     @rundir.setter
     def rundir(self, value):
         self.tensorboard = SummaryWriter(value)
+
+    def cuda(self):
+        self.device = "cuda:0"
+        return self
+
+    def cpu(self):
+        self.device = "cpu:0"
+        return self
 
     @abstractmethod
     def train(self, train_loader, *args, **kwargs):
@@ -130,20 +138,23 @@ class Trainer(ABC):
             # Train and evaluate the model
             train_loss = self.train(train_loader, *args, **kwargs)
             eval_loss = self.eval(eval_loader, *args, **kwargs)
-            self.performace["train_loss"].append(train_loss)
-            self.performace["eval_loss"].append(eval_loss)
+
+            # Update the performances
             print(f"\tTraining:   loss={train_loss:.6f}")
             print(f"\tEvaluation: loss={eval_loss:.6f}")
+            self.performace["train_loss"].append(train_loss)
+            self.performace["eval_loss"].append(eval_loss)
             self.tensorboard.add_scalar('Loss/train', train_loss, epoch)
             self.tensorboard.add_scalar('Loss/eval', eval_loss, epoch)
+
             # Fix LR
             pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer,
                                                               factor=0.5,
                                                               patience=self.patience,
                                                               verbose=self.verbose)
-            pla_lr_scheduler.step(eval_loss)  # lr_scheduler
-            
-            # Save a checkpoint
+            pla_lr_scheduler.step(eval_loss)
+
+            # Save a checkpoint if the loss decreased
             model_dict = {
                 'epoch': epoch,
                 'train_loss': train_loss,
