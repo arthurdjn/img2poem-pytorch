@@ -35,9 +35,9 @@ _Feel free to star the project or open an issue !_
 
 This project introduces poem generation from images. This implementation was inspired from the research paper [‟Beyond Narrative Description: Generating Poetry from Images” by Liu, Bei et al.](https://arxiv.org/abs/1804.08473), published in 2018 at Microsoft.
 
-The implementation is already [coded with TensorFlow](https://github.com/researchmm/img2poem) in the official [Microsoft](https://github.com/researchmm) repository. Even though a similar implementation has been transcribed in PyTorch from the project [“Neural Poetry Generation with Visual Inspiration.” by Li, Zhaoyang et al.](https://github.com/zhaoyanglijoey/Poem-From-Image), their implementation does not totally match the original paper.
-
-This repository tries to rearrange code from [Zhaoyang Li et al.](https://github.com/zhaoyanglijoey/Poem-From-Image) implementation and create a model architecture similar to [Bei, Liu et al.](https://github.com/researchmm/img2poem), with PyTorch.
+The implementation is already [coded with TensorFlow](https://github.com/researchmm/img2poem) in the official [Microsoft](https://github.com/researchmm) repository.
+This repository tries to rearrange implementation from [“Neural Poetry Generation with Visual Inspiration.” by Li, Zhaoyang et al.](https://github.com/zhaoyanglijoey/Poem-From-Image)
+and create a model architecture similar to [Bei, Liu et al.](https://github.com/researchmm/img2poem), with PyTorch.
 
 ## 1.1. Get Started
 
