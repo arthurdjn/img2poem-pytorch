@@ -11,3 +11,7 @@ def get_time(seconds):
     min, sec = divmod(seconds, 60)
     hour, min = divmod(min, 60)
     return f"{int(hour)}:{int(min)}:{int(sec)}"
+
+
+def count_parameters(model):
+    return sum(param.numel() for param in model.parameters() if param.requires_grad)

@@ -15,7 +15,7 @@ import torch
 
 # img2poem package
 from .trainer import Trainer
-from img2poem.nn.embedder import rank_loss
+from img2poem.nn import rank_loss
 
 
 class PoeticEmbedderTrainer(Trainer):

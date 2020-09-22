@@ -14,7 +14,7 @@ import torch.nn as nn
 from torchvision.models import resnet50
 
 # img2poem package
-from .utils import download_weights
+from img2poem.nn.utils import download_weights
 
 
 class ResNet50Object(nn.Module):

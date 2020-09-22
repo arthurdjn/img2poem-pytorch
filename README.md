@@ -3,7 +3,6 @@
 [![arxiv](https://img.shields.io/badge/original%20paper-arxiv-red.svg)](https://arxiv.org/abs/1804.08473)
 [![website](https://img.shields.io/website?url=http%3A%2F%2Farthurdujardin.com%2Fproject%2Fimg2poem.html)](arthurdujardin.com/project/img2poem.html)
 
-
 <h1>img2poem-pytorch 🖼️ 📃</h1>
 
 > _PyTorch implementation of the paper ‟Beyond Narrative Description: Generating Poetry from Images” by B. Liu et al., 2018._
@@ -161,14 +160,28 @@ To align visual features to a poetic space, the paired poem & image dataset is u
 
 Images and poems are both embedded:
 
-- the poems are embedded through a [BERT](https://github.com/huggingface/transformers) model,
-- and the images are embedded with the concatenation of the visual models (objects, Scenes and Sentiment).
+- the poems are embedded through a [BERT](https://github.com/huggingface/transformers) model into a feature vector of shape
+  <img src="https://render.githubusercontent.com/render/math?math=(B, F)">,
+- and the images are embedded with the concatenation of the visual models (objects, Scenes and Sentiment) into a feature vector of shape
+  <img src="https://render.githubusercontent.com/render/math?math=(B, F)">.
 
-Then these two embeddings are aligned in a common poetic space.
+Then these two embeddings are aligned in a common poetic space with a scalar product:
+
+<p align="center">
+  <img src="https://render.githubusercontent.com/render/math?math=h_{image}^T \cdot h_{poem}">
+</p>
+
+To measure the loss from the feature tensors coming from poems and images, I used the _ranking loss_, described in the [original paper by Bei Liu et al.](https://arxiv.org/abs/1804.08473) and [Zhaoyang Li et al. implementation](https://github.com/zhaoyanglijoey/Poem-From-Image).
 
 ## 3.3. Generator
 
+The generator is a recurrent based decoder. I used ``GRU`` cells, as explained in the original paper, to generate a sentence from a feature tensor from the poetic space.
+
+The discriminator is a module which classify a sequence as real, unpaired or generated (cf. the [original paper](https://arxiv.org/abs/1804.08473))
+
 # 4. Notebooks
+
+**W.I.P**
 
 # 5. References
 

@@ -7,6 +7,5 @@
 # Copyright (c) 2020 Arthur Dujardin
 
 
-from .resnet import *
-from .embedder import *
-from .adversarial import *
+from .modules import *
+from .loss import *

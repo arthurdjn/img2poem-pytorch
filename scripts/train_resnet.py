@@ -29,7 +29,7 @@ if __name__ == "__main__":
     filename = "../data/images/image-Sentiment-polarity-DFE.csv"
     image_dir = "../data/images/crowdflower/sentiment"
     BATCH_SIZE = 64
-    LR = 5e-5
+    LR = 1e-4
     SPLIT = 0.9
 
     print(f"\n0. Hyper params...")
