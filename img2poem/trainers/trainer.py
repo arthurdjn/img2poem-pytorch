@@ -136,34 +136,37 @@ class Trainer(ABC):
             print(f"Epoch: {epoch:>{epoch_len}}/{epochs}")
 
             # Train and evaluate the model
-            train_loss = self.train(train_loader, *args, **kwargs)
-            eval_loss = self.eval(eval_loader, *args, **kwargs)
+            train_scores = self.train(train_loader, *args, **kwargs)
+            eval_scores = self.eval(eval_loader, *args, **kwargs)
 
             # Update the performances
-            print(f"\tTraining:   loss={train_loss:.6f}")
-            print(f"\tEvaluation: loss={eval_loss:.6f}")
-            self.performace["train_loss"].append(train_loss)
-            self.performace["eval_loss"].append(eval_loss)
-            self.tensorboard.add_scalar('Loss/train', train_loss, epoch)
-            self.tensorboard.add_scalar('Loss/eval', eval_loss, epoch)
+            print(f"\tTraining:   {' | '.join([f'{key}: {value:.4f}' for key, value in train_scores.items()])}")
+            print(f"\tTraining:   {' | '.join([f'{key}: {value:.4f}' for key, value in train_scores.items()])}")
+            print(f"\tEvaluation: {' | '.join([f'{key}: {value:.4f}' for key, value in eval_scores.items()])}")
+            for key, value in train_scores.items():
+                self.performace[f"train_{key}"].append(value)
+                self.tensorboard.add_scalar(f'{key}/train', value, epoch)
+            for key, value in eval_scores.items():
+                self.performace[f"eval_{key}"].append(value)
+                self.tensorboard.add_scalar(f'{key}/eval', value, epoch)
 
             # Fix LR
             pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer,
                                                               factor=0.5,
                                                               patience=self.patience,
                                                               verbose=self.verbose)
-            pla_lr_scheduler.step(eval_loss)
+            pla_lr_scheduler.step(eval_scores["loss"])
 
             # Save a checkpoint if the loss decreased
             model_dict = {
                 'epoch': epoch,
-                'train_loss': train_loss,
-                'eval_loss': eval_loss,
+                'train_loss': train_scores["loss"],
+                'eval_loss': eval_scores["loss"],
                 'state_dict': self.model.state_dict(),
                 'optimizer': self.optimizer.state_dict(),
                 'criterion': self.criterion.__class__.__name__
             }
-            self.early_stopping(model_dict, eval_loss.item(), epoch, self.savedir)
+            self.early_stopping(model_dict, eval_scores["loss"].item(), epoch, self.savedir)
             # Quit if early stopping
             if self.early_stopping.early_stop:
                 print(f"Early stopping at epoch {epoch}...")

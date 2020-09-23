@@ -28,11 +28,11 @@ def download_weights(url, outdir='.data'):
         >>> url = 'http://places2.csail.mit.edu/models_places365/resnet50_places365.pth.tar'
         >>> download_weights(url, outdir='.data')
     """
-    outfile = url.split('/')[-1]   
+    outfile = url.split('/')[-1]
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     # Download the weights
-    try:               
+    try:
         response = requests.get(url, stream=True)
         with open(os.path.join(outdir, outfile), "wb") as handle:
             for data in tqdm(response.iter_content()):
@@ -45,10 +45,10 @@ def download_weights(url, outdir='.data'):
 
 def normalize(x, **kwargs):
     r"""Normalize a tensor.
-    
+
     .. math::
         \text{normalize}(t) = \frac{t}{\text{norm(t)}}
-    
+
     Args:
         x (torch.tensor): Tensor to normalize.
 
@@ -57,3 +57,19 @@ def normalize(x, **kwargs):
     """
     out = x / torch.norm(x, **kwargs)
     return out
+
+
+def one_hot(Y, num_classes):
+    r"""Perform one-hot encoding on input Y.
+
+    Args:
+        Y (Tensor): 1D tensor of classes indices of length :math:`N`
+        num_classes (int): number of classes :math:`C`
+    
+    Returns:
+        Tensor: one hot encoded tensor of shape :math:`(N, C)`
+    """
+    batch_size = len(Y)
+    Y_tilde = torch.zeros((batch_size, num_classes), device=Y.device)
+    Y_tilde[torch.arange(batch_size), Y] = 1
+    return Y_tilde.long()

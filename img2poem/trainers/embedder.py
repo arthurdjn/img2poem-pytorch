@@ -44,7 +44,8 @@ class PoeticEmbedderTrainer(Trainer):
             self.optimizer.step()
             # Print training loss
             trange.set_postfix({f"train loss": f"{loss:.6f}"})
-        return np.mean(train_losses)
+        scores = {"loss": np.mean(train_losses)}
+        return scores
 
     def eval(self, eval_loader):
         self.model.eval()
@@ -63,4 +64,5 @@ class PoeticEmbedderTrainer(Trainer):
                 eval_losses.append(loss.item())
                 # Print evaluation loss
                 trange.set_postfix({f"eval loss": f"{loss:.6f}"})
-        return np.mean(eval_losses)
+        scores = {"loss": np.mean(eval_losses)}
+        return scores

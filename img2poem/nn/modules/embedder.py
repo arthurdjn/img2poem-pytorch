@@ -14,7 +14,7 @@ from transformers import BertModel
 
 # img2poem package
 from .resnet import ResNet50Object, ResNet50Sentiment, ResNet50Scene
-from img2poem.nn import rank_loss
+from img2poem.nn.loss import rank_loss
 from img2poem.utils import deprecated
 
 

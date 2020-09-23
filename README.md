@@ -1,7 +1,7 @@
 ![Python](https://img.shields.io/badge/python-3.+-blue.svg)
 ![pytorch](https://img.shields.io/badge/pytorch-1.6.0-ee4c2c.svg)
 [![arxiv](https://img.shields.io/badge/original%20paper-arxiv-red.svg)](https://arxiv.org/abs/1804.08473)
-[![website](https://img.shields.io/website?url=http%3A%2F%2Farthurdujardin.com%2Fproject%2Fimg2poem.html)](arthurdujardin.com/project/img2poem.html)
+[![website](https://img.shields.io/website?url=http%3A%2F%2Farthurdujardin.com%2Fproject%2Fimg2poem.html)](https://arthurdujardin.com/project/img2poem.html)
 
 <h1>img2poem-pytorch 🖼️ 📃</h1>
 
