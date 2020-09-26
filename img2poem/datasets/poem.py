@@ -79,7 +79,7 @@ class PoemUniMDataset(Dataset):
         self.masks = torch.tensor(masks)       
 
     def __len__(self):
-        return len(self.token_ids)
+        return len(self.ids)
 
     def __getitem__(self, index):
         return self.ids[index], self.tokens_ids[index], self.masks[index]
@@ -155,7 +155,7 @@ class PoemMultiMDataset(Dataset):
         return PoemMultiMDataset(cls.url, outdir, **kwargs)
 
     def __len__(self):
-        return len(self.token_ids)
+        return len(self.ids)
 
     def __getitem__(self, index):
         return self.ids[index], self.tokens_ids[index], self.masks[index], self.images[index]

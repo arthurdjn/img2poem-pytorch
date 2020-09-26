@@ -52,12 +52,12 @@ class ImagePolarityDataset(Dataset):
         super(ImagePolarityDataset, self).__init__()
         self.filename = filename
         self.image_dir = image_dir
-        self._df = pd.read_csv(filename)
+        self.data = pd.read_csv(filename)
         self.transform = transform or DEFAULT_TRANSFORM
         ids = []
         images = []
         labels = []
-        for _, row in tqdm(self._df.iterrows(), desc='Loading', position=0, leave=True, total=len(self._df)):
+        for _, row in tqdm(self.data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
             id = row['_unit_id']
             sentiment = row['which_of_these_sentiment_scores_does_the_above_image_fit_into_best']
             label = self.label2id[sentiment]
@@ -165,10 +165,10 @@ class ImageEmotionDataset(Dataset):
         super(ImageEmotionDataset, self).__init__()
         self.filename = filename
         self.image_dir = image_dir
-        self._df = pd.read_csv(filename)
+        self.data = pd.read_csv(filename)
         self.transform = transform or DEFAULT_TRANSFORM
         ids = []
-        for _, row in tqdm(self._df.iterrows(), desc='Loading', position=0, leave=True, total=len(self._df)):
+        for _, row in tqdm(self.data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
             id = row['id']
             image_file = os.path.join(image_dir, f'{id}.jpg')
             try:
@@ -242,7 +242,7 @@ class ImageEmotionDataset(Dataset):
 
     def __getitem__(self, index):
         id = int(self.ids[index])
-        emotion = self._df.iloc[id].emotion
+        emotion = self.data.iloc[id].emotion
         label = self.label2id[emotion]
         image_file = os.path.join(self.image_dir, f'{id}.jpg')
         image = Image.open(image_file).convert("RGB")

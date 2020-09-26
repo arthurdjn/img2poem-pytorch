@@ -19,3 +19,26 @@ from transformers import BertTokenizer
 # img2poem package
 from .utils import download_image, default_transform
 from img2poem.tokenizer import pad_bert_sequences
+
+
+class FeaturesDataset(Dataset):
+    def __init__(self, filename, tokenizer=None, max_seq_len=128):
+        self.filename = filename
+        self.data = pd.read_pickle(filename)
+        ids = []
+        poems = []
+        for _, row in tqdm(self.data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
+            id = row.id
+            poem = row.poem.replace("\n", " ; ")
+            poems.append(poem)
+            ids.append(id)
+        tokens_ids, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
+        self.ids = torch.tensor(ids)
+        self.tokens_ids = torch.tensor(tokens_ids)
+        self.masks = torch.tensor(masks)    
+        
+    def __len__(self):
+        return len(self.ids)
+
+    def __getitem__(self, index):
+        return self.ids[index], self.tokens_ids[index], self.masks[index]
