@@ -10,6 +10,17 @@
 # Basic imports
 import requests
 import os
+import torchvision.transforms as transforms
+
+
+DEFAULT_TRANSFORM = transforms.Compose([
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
+    # To float values between [0, 1]
+    transforms.ToTensor(),
+    # Normalize regarding ResNet training data
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  
+])
 
 
 def download_image(url, outname, outdir='./'):
@@ -34,51 +45,3 @@ def download_image(url, outname, outdir='./'):
         except Exception as error:
             print(f"WARNING: An error occured. {error}"
                   f"Could not download the image {outdir}/{outname} from the URL {url}.")
-
-
-def pad_bert_sequence(sequence, tokenizer, max_seq_len=512, cls_token='[CLS]', sep_token='[SEP]'):
-    """Pad a sequence (in text format) with the BERT tokenizer. It add a ``[CLS]`` and ``[SEP]`` tokens
-    at the begining and end of the truncated sentence (the sentence has ``max_seq_len`` length).
-
-    Args:
-        sequence (str): The sentence to tokenize.
-        tokenizer (BertTokenizer): Bert tokenizer.
-        max_seq_len (int, optional): Maximal length of a sequence. Defaults to 256.
-        cls_token (str, optional): The Start of String token. Defaults to '[CLS]'.
-        sep_token (str, optional): The Separator (or End of String) token. Defaults to '[SEP]'.
-
-    Returns:
-        tuple: tokenized sentence and attention mask.
-    """
-    # Tokenize the sequence
-    tokens = tokenizer.tokenize(sequence)
-    tokens = [cls_token] + tokens[0:max_seq_len-2] + [sep_token]
-    tokens_ids = tokenizer.convert_tokens_to_ids(tokens)
-    # Pad the sequences
-    tokens_ids_padded = tokens_ids + [0] * (max_seq_len - len(tokens_ids))
-    attention_masks = [int(x > 0) for x in tokens_ids_padded]
-    return tokens_ids_padded, attention_masks
-
-
-def pad_bert_sequences(sequences, tokenizer, max_seq_len=512, cls_token='[CLS]', sep_token='[SEP]'):
-    """Pad a list of sequences (in text format) with the BERT tokenizer. It add a ``[CLS]`` and ``[SEP]`` tokens
-    at the begining and end of the truncated sentences (the sentences have ``max_seq_len`` length).
-
-    Args:
-        sequence (str): The sentences to tokenize.
-        tokenizer (BertTokenizer): Bert tokenizer.
-        max_seq_len (int, optional): Maximal length of a sequence. Defaults to 256.
-        cls_token (str, optional): The Start of String token. Defaults to '[CLS]'.
-        sep_token (str, optional): The Separator (or End of String) token. Defaults to '[SEP]'.
-
-    Returns:
-        tuple: tokenized sentences and attention masks.
-    """
-    # Tokenize the sequences
-    tokens = [tokenizer.tokenize(sequence) for sequence in sequences]
-    tokens = [[cls_token] + sequence[0:max_seq_len-2] + [sep_token] for sequence in tokens]
-    tokens_ids = [tokenizer.convert_tokens_to_ids(tks) for tks in tokens]
-    # Pad the sequences
-    tokens_ids_padded = [ids + [0] * (max_seq_len - len(ids)) for ids in tokens_ids]
-    attention_masks = [[int(x > 0) for x in ids] for ids in tokens_ids_padded]
-    return tokens_ids_padded, attention_masks

@@ -10,7 +10,6 @@
 # Basic imports
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence
 
 # img2poem
 from img2poem.nn.utils import normalize
@@ -40,7 +39,7 @@ class PoeticDecoder(nn.Module):
         self.fc = nn.Linear(hidden_dim*2 if bidirectional else hidden_dim, vocab_size)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, features, token_ids):
+    def forward(self, features, token_ids, lengths):
         """Forward pass used to train the embedding and recurrent layer with tensors from the Poetic space,
         w.r.t. real poems from MultiM and UniM.
 
@@ -63,7 +62,8 @@ class PoeticDecoder(nn.Module):
         embeddings = self.embedding(token_ids)
         # embedding = B, hidden_dim, embedding_dim
         embeddings = self.dropout(embeddings)
-        packed_output, (_, _) = self.rnn(embeddings, (h, c))
+        packed_embeddings = nn.utils.rnn.pack_padded_sequence(embeddings, lengths, batch_first=True)
+        packed_output, (_, _) = self.rnn(packed_embeddings, (h, c))
         sequences, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)
         # sequences = B, max_seq_len
         out = self.dropout(sequences)
@@ -91,19 +91,23 @@ class PoeticDecoder(nn.Module):
 
         sampled_ids = []
         # use [SOS] as init input
-        start = torch.full((batch_size, 1), self.token_sos_id, dtype=torch.int).long().to(self.device)  # start symbol index is 1
-        inputs = self.embed(start)  # inputs: (batch_size, 1, embed_size)
-
-        # use features from the poetic space as hidden state
-        (h, c) = self.rnn_cell(features)
-        for i in range(self.max_seq_len):
-            lstm_outputs, (h, c) = self.rnn(inputs, (h, c))
-            outputs = self.linear(lstm_outputs.squeeze(1))
-            weights = torch.functional.softmax(outputs / temperature, dim=1)
-            predicted = torch.multinomial(weights, 1).squeeze(-1)
-            sampled_ids.append(predicted)
-            inputs = self.embed(predicted)
-            inputs = inputs.unsqueeze(1)
+        start = torch.full((batch_size, 1), self.token_sos_id, 
+                           dtype=torch.int, device=features.device).long()
+        
+        # Predict the next sentences
+        with torch.no_grad():
+            inputs = self.embed(start)
+            # inputs = B, 1, embedding_dim
+            # use features from the poetic space as hidden state
+            (h, c) = self.rnn_cell(features)
+            for i in range(self.max_seq_len):
+                lstm_outputs, (h, c) = self.rnn(inputs, (h, c))
+                outputs = self.linear(lstm_outputs.squeeze(1))
+                weights = torch.functional.softmax(outputs / temperature, dim=1)
+                predicted = torch.multinomial(weights, 1).squeeze(-1)
+                sampled_ids.append(predicted)
+                inputs = self.embed(predicted)
+                inputs = inputs.unsqueeze(1)
 
         sampled_ids = torch.stack(sampled_ids, 1)
         return sampled_ids
@@ -137,8 +141,9 @@ class Discriminator(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, sequence, lengths):
-        embeddings = self.embedding(sequence)
-        packed_sequence = pack_padded_sequence(embeddings, lengths, batch_first=True)
+        embeddings = self.embedding(sequence[:, 1:])  # Skip <sos> tokens
+        embedded = self.dropout(embeddings)
+        packed_sequence = nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True)
         # packed_sequence = B, max_seq_len, embedding_dim
         _, (hidden, _) = self.rnn(packed_sequence)
         # hidden = B, hidden_dim

@@ -65,17 +65,6 @@ class PoemEmbedder(nn.Module):
         for param in self.fc.parameters():
             param.requires_grad = True
 
-    def full_tune(self):
-        """Fully tune the Poem Embedder model.
-
-        .. warning::
-            If all parameters are learnable (i.e. the model is not in fine tune mode)
-            then you may face issue of memory.
-            Note that by default, the bert model has 109,486,085 trainable parameters.
-        """
-        for param in self.parameters():
-            param.requires_grad = True
-
 
 class ImageEmbedder(nn.Module):
     """Model used to embed an image in a poetic space.
@@ -107,11 +96,14 @@ class ImageEmbedder(nn.Module):
             Feature of shape :math:`(B, F)`.
         """
         # image = B, C, H, W
-        out1 = self.object(image)  # out = B, 2048
-        out2 = self.sentiment(image)  # out = B, 2048
-        out3 = self.scene(image)  # out = B, 2048
-        # out = B, (2048 + 2048 + 2048)
+        out1 = self.object(image)  
+        # out1 = B, 2048
+        out2 = self.sentiment(image)  
+        # out2 = B, 2048
+        out3 = self.scene(image)  
+        # out3 = B, 2048
         out = torch.cat([out1, out2, out3], dim=1)
+        # out = B, 3*2048
         return self.fc(out)
 
     def from_pretrained(self, object_state=None, sentiment_state=None, scene_state=None):
@@ -176,8 +168,6 @@ class PoeticEmbedder(nn.Module):
     def from_pretrained(self, **kwargs):
         self.image_embedder.from_pretrained(**kwargs)
 
-    def fine_tune(self, tune_image=True, tune_poem=True):
-        if tune_image:
-            self.poem_embedder.fine_tune()
-        if tune_poem:
-            self.image_embedder.fine_tune()
+    def fine_tune(self):
+        self.poem_embedder.fine_tune()
+        self.image_embedder.fine_tune()

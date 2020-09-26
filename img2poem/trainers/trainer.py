@@ -72,12 +72,13 @@ class Trainer(ABC):
 
     """
 
-    def __init__(self, model, optimizer, criterion,
-                 rundir="runs", savedir="saves", patience=10, verbose=True, device="cpu"):
+    def __init__(self, model, optimizer, criterion, scheduler=None,
+                 root=".saved_models", patience=10, verbose=True, device="cpu"):
         super(Trainer, self).__init__()
-        self.start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
-        self.savedir = os.path.join(savedir, model.__class__.__name__, self.start)
-        self._rundir = os.path.join(rundir, model.__class__.__name__, self.start)
+        start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
+        self.root = root
+        self.savedir = os.path.join(root, "saves", model.__class__.__name__, start)
+        self._rundir = os.path.join(root, "runs", model.__class__.__name__, start)
         self._patience = patience
         self._verbose = verbose
         self.device = device
@@ -85,6 +86,7 @@ class Trainer(ABC):
         self.model = model
         self.optimizer = optimizer
         self.criterion = criterion
+        self.scheduler = scheduler
         self.performace = defaultdict(list)
         self.tensorboard = SummaryWriter(self.rundir)
         self.early_stopping = EarlyStopping(patience=self.patience, verbose=self.verbose)
@@ -95,7 +97,7 @@ class Trainer(ABC):
 
     @verbose.setter
     def verbose(self, value):
-        self.early_stopping = EarlyStopping(self.patience, value)
+        self.early_stopping = EarlyStopping(patience=self.patience, verbose=value)
 
     @property
     def patience(self):
@@ -111,15 +113,24 @@ class Trainer(ABC):
 
     @rundir.setter
     def rundir(self, value):
+        self._rundir = value
         self.tensorboard = SummaryWriter(value)
 
     def cuda(self):
-        self.device = "cuda:0"
+        self.device = "cuda"
         return self
 
     def cpu(self):
-        self.device = "cpu:0"
+        self.device = "cpu"
         return self
+
+    def clear(self):
+        start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
+        self.savedir = os.path.join(self.root, "saves", self.model.__class__.__name__, start)
+        self.rundir = os.path.join(self.root, "runs", self.model.__class__.__name__, start)
+        self.performace = defaultdict(list)
+        self.tensorboard = SummaryWriter(self.rundir)
+        self.early_stopping = EarlyStopping(patience=self.patience, verbose=self.verbose)
 
     @abstractmethod
     def train(self, train_loader, *args, **kwargs):
@@ -138,9 +149,11 @@ class Trainer(ABC):
             # Train and evaluate the model
             train_scores = self.train(train_loader, *args, **kwargs)
             eval_scores = self.eval(eval_loader, *args, **kwargs)
+            # Reduce the learning rate
+            if self.scheduler is not None:
+                self.scheduler.step(eval_scores["loss"])
 
             # Update the performances
-            print(f"\tTraining:   {' | '.join([f'{key}: {value:.4f}' for key, value in train_scores.items()])}")
             print(f"\tTraining:   {' | '.join([f'{key}: {value:.4f}' for key, value in train_scores.items()])}")
             print(f"\tEvaluation: {' | '.join([f'{key}: {value:.4f}' for key, value in eval_scores.items()])}")
             for key, value in train_scores.items():
@@ -149,13 +162,6 @@ class Trainer(ABC):
             for key, value in eval_scores.items():
                 self.performace[f"eval_{key}"].append(value)
                 self.tensorboard.add_scalar(f'{key}/eval', value, epoch)
-
-            # Fix LR
-            pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer,
-                                                              factor=0.5,
-                                                              patience=self.patience,
-                                                              verbose=self.verbose)
-            pla_lr_scheduler.step(eval_scores["loss"])
 
             # Save a checkpoint if the loss decreased
             model_dict = {
@@ -166,8 +172,8 @@ class Trainer(ABC):
                 'optimizer': self.optimizer.state_dict(),
                 'criterion': self.criterion.__class__.__name__
             }
-            self.early_stopping(model_dict, eval_scores["loss"].item(), epoch, self.savedir)
             # Quit if early stopping
+            self.early_stopping(model_dict, eval_scores["loss"].item(), epoch, self.savedir)
             if self.early_stopping.early_stop:
                 print(f"Early stopping at epoch {epoch}...")
                 return

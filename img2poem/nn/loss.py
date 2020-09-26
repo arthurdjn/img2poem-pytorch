@@ -9,6 +9,7 @@
 
 # Basic imports
 import torch
+from torch.nn.modules.loss import _Loss
 
 # img2poem package
 from .utils import normalize
@@ -39,3 +40,12 @@ def rank_loss(poem1, image1, poem2, image2, alpha=0.2):
     loss2 = torch.max(alpha - torch.sum(poem2 * image2, dim=1) +
                       torch.sum(poem2 * image1, dim=1), zero_tensor)
     return torch.mean(loss1 + loss2)
+
+
+class RankLoss(_Loss):
+    def __init__(self, alpha=0.2, **kwargs):
+        super(RankLoss, self).__init__(**kwargs)
+        self.alpha = alpha
+
+    def forward(self, poem1, image1, poem2, image2):
+        return rank_loss(poem1, image1, poem2, image2, self.alpha)

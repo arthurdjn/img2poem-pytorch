@@ -16,10 +16,10 @@ import torch
 from torch.utils.data import Dataset
 
 # img2poem package
-from .utils import download_image
+from .utils import download_image, DEFAULT_TRANSFORM
 
 
-class ImageSentimentDataset(Dataset):
+class ImagePolarityDataset(Dataset):
     """Dataset for image sentiment polarity, brought by ``crowdflower``.
     This dataset is made a cooperative dataset containing a set of images and sentiment labels, such as
     * Highly negative
@@ -39,6 +39,9 @@ class ImageSentimentDataset(Dataset):
     .. note::
         Download the images from the csv file with the ``download`` method.
 
+    .. note::
+        Processing from `PyTorch ResNet <https://pytorch.org/hub/pytorch_vision_resnet/>`__.
+
     """
 
     url = 'https://github.com/arthurdjn/img2poem-pytorch/raw/master/data/images/image-Sentiment-polarity-DFE.csv'
@@ -46,20 +49,22 @@ class ImageSentimentDataset(Dataset):
     name = 'polarity'
 
     def __init__(self, filename, image_dir, transform=None):
-        super(ImageSentimentDataset, self).__init__()
+        super(ImagePolarityDataset, self).__init__()
+        self.filename = filename
+        self.image_dir = image_dir
+        self._df = pd.read_csv(filename)
+        self.transform = transform or DEFAULT_TRANSFORM
         ids = []
         images = []
         labels = []
-        df = pd.read_csv(filename)
-        for _, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
+        for _, row in tqdm(self._df.iterrows(), desc='Loading', position=0, leave=True, total=len(self._df)):
             id = row['_unit_id']
             sentiment = row['which_of_these_sentiment_scores_does_the_above_image_fit_into_best']
-            label = self.__class__.sentiment2label[sentiment]
+            label = self.label2id[sentiment]
             image_file = os.path.join(image_dir, f'{id}.jpg')
             try:
                 image = Image.open(image_file).convert('RGB')
-                if transform:
-                    image = transform(image)
+                image = self.transform(image)
                 ids.append(id)
                 images.append(image)
                 labels.append(label)
@@ -73,21 +78,21 @@ class ImageSentimentDataset(Dataset):
     @property
     def id2label(self):
         return {
-            'Highly negative': 0,
-            'Negative': 1,
-            'Neutral': 2,
-            'Positive': 3,
-            'Highly positive': 4
-        }
-
-    @property
-    def label2id(self):
-        return {
             0: 'Highly negative',
             1: 'Negative',
             2: 'Neutral',
             3: 'Positive',
             4: 'Highly positive'
+        }
+
+    @property
+    def label2id(self):
+        return {
+            'Highly negative': 0,
+            'Negative': 1,
+            'Neutral': 2,
+            'Positive': 3,
+            'Highly positive': 4
         }
 
     @classmethod
@@ -118,10 +123,10 @@ class ImageSentimentDataset(Dataset):
             except Exception:
                 print(f"WARNING: Image {id} not downloaded from {url}.")
 
-        return ImageSentimentDataset(cls.url, outdir, **kwargs)
+        return ImagePolarityDataset(cls.url, outdir, **kwargs)
 
     def __len__(self):
-        return len(self.images)
+        return len(self.ids)
 
     def __getitem__(self, index):
         return self.ids[index], self.images[index], self.labels[index]
@@ -147,63 +152,60 @@ class ImageEmotionDataset(Dataset):
     .. note::
         Download the images from the csv file with the ``download`` method.
 
+    .. note::
+        Processing from `PyTorch ResNet <https://pytorch.org/hub/pytorch_vision_resnet/>`__.
+
     """
 
     url = 'https://github.com/arthurdjn/img2poem-pytorch/raw/master/data/images/image-Sentiment-emotion.csv'
     dirname = 'crowdflower'
     name = 'emotion'
 
-    label2id = {
-        'amusement': 0,
-        'anger': 1,
-        'awe': 2,
-        'contentment': 3,
-        'excitement': 4,
-        'disgust': 5,
-        'fear': 6,
-        'sadness': 7
-    }
-    id2label = {
-        0: 'amusement',
-        1: 'anger',
-        2: 'awe',
-        3: 'contentment',
-        4: 'excitement',
-        5: 'disgust',
-        6: 'fear',
-        7: 'sadness'
-    }
-
     def __init__(self, filename, image_dir, transform=None):
-        super(ImageSentimentDataset, self).__init__()
+        super(ImageEmotionDataset, self).__init__()
+        self.filename = filename
+        self.image_dir = image_dir
+        self._df = pd.read_csv(filename)
+        self.transform = transform or DEFAULT_TRANSFORM
         ids = []
-        images = []
-        labels = []
-        df = pd.read_csv(filename)
-        for _, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
+        for _, row in tqdm(self._df.iterrows(), desc='Loading', position=0, leave=True, total=len(self._df)):
             id = row['id']
-            emotion = row['emotion']
-            label = self.__class__.sentiment2label[emotion]
             image_file = os.path.join(image_dir, f'{id}.jpg')
             try:
-                image = Image.open(image_file).convert('RGB')
-                if transform:
-                    image = transform(image)
+                # Try to load the image, but only save its id for later use.
+                # Storing the whole image may crash, as a result of out of memory error.
+                Image.open(image_file).convert("RGB")
                 ids.append(id)
-                images.append(image)
-                labels.append(label)
             except Exception:
                 pass
 
         self.ids = torch.tensor(ids)
-        self.images = torch.stack(images)
-        self.labels = torch.tensor(labels)
 
-    def id2label(self, id):
-        return self.__class__.id2label[id]
+    @property
+    def id2label(self):
+        return {
+            0: 'amusement',
+            1: 'anger',
+            2: 'awe',
+            3: 'contentment',
+            4: 'excitement',
+            5: 'disgust',
+            6: 'fear',
+            7: 'sadness'
+        }
 
-    def label2id(self, id):
-        return self.__class__.label2id[id]
+    @property
+    def label2id(self):
+        return {
+            'amusement': 0,
+            'anger': 1,
+            'awe': 2,
+            'contentment': 3,
+            'excitement': 4,
+            'disgust': 5,
+            'fear': 6,
+            'sadness': 7
+        }
 
     @classmethod
     def download(cls, root='.data', **kwargs):
@@ -233,10 +235,16 @@ class ImageEmotionDataset(Dataset):
             except Exception:
                 print(f"WARNING: Image {id} not downloaded from {url}.")
 
-        return ImageSentimentDataset(cls.url, outdir, **kwargs)
+        return ImageEmotionDataset(cls.url, outdir, **kwargs)
 
     def __len__(self):
-        return len(self.images)
+        return len(self.ids)
 
     def __getitem__(self, index):
-        return self.ids[index], self.images[index], self.labels[index]
+        id = int(self.ids[index])
+        emotion = self._df.iloc[id].emotion
+        label = self.label2id[emotion]
+        image_file = os.path.join(self.image_dir, f'{id}.jpg')
+        image = Image.open(image_file).convert("RGB")
+        image = self.transform(image)
+        return id, image, label

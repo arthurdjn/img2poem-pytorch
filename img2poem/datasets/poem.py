@@ -34,11 +34,11 @@ from PIL import Image
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-import torchvision.transforms as transforms
 from transformers import BertTokenizer
 
 # img2poem package
-from .utils import download_image, pad_bert_sequences
+from .utils import download_image, DEFAULT_TRANSFORM
+from img2poem.tokenizer import pad_bert_sequences
 
 
 class PoemUniMDataset(Dataset):
@@ -61,13 +61,14 @@ class PoemUniMDataset(Dataset):
     dirname = 'img2poem'
     name = 'unim'
 
-    def __init__(self, filename, tokenizer=None, max_seq_len=512):
+    def __init__(self, filename, tokenizer=None, max_seq_len=128):
         super(PoemUniMDataset, self).__init__()
         self.tokenizer = tokenizer or BertTokenizer.from_pretrained('bert-base-uncased')
-        df = pd.read_json(filename)
+        self.filename = filename
+        self.data = pd.read_json(filename)
         ids = []
         poems = []
-        for _, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
+        for _, row in tqdm(self.data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
             id = row.id
             poem = row.poem.replace("\n", " ; ")
             poems.append(poem)
@@ -110,31 +111,32 @@ class PoemMultiMDataset(Dataset):
     dirname = 'img2poem'
     name = 'multim'
 
-    def __init__(self, filename, image_dir, tokenizer=None, max_seq_len=512, transform=None):
+    def __init__(self, filename, image_dir, tokenizer=None, max_seq_len=128, transform=None):
         super(PoemMultiMDataset, self).__init__()
         self.tokenizer = tokenizer or BertTokenizer.from_pretrained('bert-base-uncased')
-        transform = transform or self.default_transform()
-        df = pd.read_json(filename)
+        self.data = pd.read_json(filename)
+        self.transform = transform or DEFAULT_TRANSFORM
         ids = []
         poems = []
         images = []
-        for idx, row in tqdm(df.iterrows(), desc='Loading', position=0, leave=True, total=len(df)):
+        for _, row in tqdm(self.data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
             id = row.id
             poem = row.poem.replace("\n", " ; ")
             image_file = os.path.join(image_dir, f'{id}.jpg')
             try:
-                image = transform(Image.open(image_file).convert('RGB'))
+                image = self.transform(Image.open(image_file).convert('RGB'))
                 ids.append(id)
                 poems.append(poem)
                 images.append(image)
             except Exception:
                 pass
 
-        token_ids, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
         self.ids = torch.tensor(ids)
+        self.images = torch.stack(images)
+        self.poems = poems
+        token_ids, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
         self.token_ids = torch.tensor(token_ids)
         self.masks = torch.tensor(masks)
-        self.images = torch.stack(images)
 
     @classmethod
     def download(cls, root='.data', **kwargs):
@@ -151,15 +153,6 @@ class PoemMultiMDataset(Dataset):
                 print(f"WARNING: Image {id} not downloaded from {url}.")
 
         return PoemMultiMDataset(cls.url, outdir, **kwargs)
-
-    @staticmethod
-    def default_transform():
-        transform = transforms.Compose([
-            transforms.Resize(224),
-            transforms.CenterCrop(224),
-            transforms.ToTensor()
-        ])
-        return transform
 
     def __len__(self):
         return len(self.token_ids)
