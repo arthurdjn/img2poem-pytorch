@@ -165,12 +165,6 @@ Images and poems are both embedded:
 - and the images are embedded with the concatenation of the visual models (objects, Scenes and Sentiment) into a feature vector of shape
   <img src="https://render.githubusercontent.com/render/math?math=(B, F)">.
 
-Then these two embeddings are aligned in a common poetic space with a scalar product:
-
-<p align="center">
-  <img src="https://render.githubusercontent.com/render/math?math=h_{image}^T \cdot h_{poem}">
-</p>
-
 To measure the loss from the feature tensors coming from poems and images, I used the _ranking loss_, described in the [original paper by Bei Liu et al.](https://arxiv.org/abs/1804.08473) and [Zhaoyang Li et al. implementation](https://github.com/zhaoyanglijoey/Poem-From-Image).
 
 ## 3.3. Generator
