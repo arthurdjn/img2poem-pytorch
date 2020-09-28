@@ -38,7 +38,7 @@ from transformers import BertTokenizer
 
 # img2poem package
 from .utils import download_image, DEFAULT_TRANSFORM
-from img2poem.tokenizer import pad_bert_sequences
+from img2poem.tokenizer import pad_sequences
 
 
 class PoemUniMDataset(Dataset):
@@ -73,10 +73,16 @@ class PoemUniMDataset(Dataset):
             poem = row.poem.replace("\n", " ; ")
             poems.append(poem)
             ids.append(id)
-        tokens_ids, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
+
+        tokens, tokens_ids, masks = pad_sequences(poems, tokenizer,
+                                                  max_seq_len=max_seq_len,
+                                                  sos_token="[CLS]",
+                                                  eos_token="[SEP]",
+                                                  pad_token="[PAD]")
         self.ids = torch.tensor(ids)
+        self.tokens = tokens
         self.tokens_ids = torch.tensor(tokens_ids)
-        self.masks = torch.tensor(masks)       
+        self.masks = torch.tensor(masks)
 
     def __len__(self):
         return len(self.ids)
@@ -131,11 +137,15 @@ class PoemMultiMDataset(Dataset):
             except Exception:
                 pass
 
+        tokens, tokens_ids, masks = pad_sequences(poems, tokenizer,
+                                                  max_seq_len=max_seq_len,
+                                                  sos_token="[CLS]",
+                                                  eos_token="[SEP]",
+                                                  pad_token="[PAD]")
         self.ids = torch.tensor(ids)
         self.images = torch.stack(images)
-        self.poems = poems
-        token_ids, masks = pad_bert_sequences(poems, tokenizer, max_seq_len=max_seq_len)
-        self.token_ids = torch.tensor(token_ids)
+        self.tokens = tokens
+        self.tokens_ids = torch.tensor(tokens_ids)
         self.masks = torch.tensor(masks)
 
     @classmethod

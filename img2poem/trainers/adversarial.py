@@ -43,14 +43,17 @@ class AdversarialTrainer(Trainer):
         lossesG = []
         lossesD = []
         trange = tqdm(train_loader, desc="  Training", position=0, leave=True, total=len(train_loader), file=sys.stdout)
-        for _, features, token_ids, lengths in trange:
+        for _, tokens, token_ids, lengths, features in trange:
+            token_ids = token_ids.to(self.device)
+            features = features.to(self.device)
+
             # 1. Update the discriminator network
             # 1.1. Real data
             self.discriminator.zero_grad()
             pred_real = self.discriminator(token_ids, lengths)
             label_real = torch.ones(token_ids.size(0), dtype=torch.long).to(self.device)
             lossD_real = self.criterionD(pred_real, label_real)
-            lossD_real.backward()
+            lossD_real.backward(retain_graph=True)
             # Get the mean loss over the batch
             lossD_real = lossD_real / features.size(0)
 
@@ -64,7 +67,7 @@ class AdversarialTrainer(Trainer):
             pred_fake = self.discriminator(pred_token_ids.detach(), lengths)
             label_fake = torch.zeros(token_ids.size(0), dtype=torch.long).to(self.device)
             lossD_fake = self.criterionD(pred_fake, label_fake)
-            lossD_fake.backward()
+            lossD_fake.backward(retain_graph=True)
             # Update the performance and weights
             lossD = lossD_real.item() + lossD_fake.item()
             lossesD.append(lossD)
@@ -73,18 +76,15 @@ class AdversarialTrainer(Trainer):
             # 2. Update the generator network
             # 2.1. Train the generator (from https://pytorch.org/docs/stable/distributions.html#score-function)
             self.model.zero_grad()
-            reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(-1)
-            lossR = -m.log_prob(pred_token_ids) * reward
-            lossR.backward()
-            lossR = lossR.mean().item()
-            
             # Measure the loss on the prediction
-            labels_pack, _ = nn.utils.rnn.pack_padded_sequence(token_ids[:, 1:], lengths, batch_first=True)
-            pred_pack = nn.utils.rnn.pack_padded_sequence(pred, lengths, batch_first=True)
-            lossG = self.criterion(pred_pack, labels_pack)
+            lossG = 0
+            for i in range(127):
+                lossG += self.criterion(weights[:, i, :], token_ids[:, i+1])
             lossG.backward()
             lossG = lossG.mean().item()
             lossesG.append(lossG)
+        return {"lossG": np.mean(lossesG),
+                "lossD": np.mean(lossesD)}
 
     def eval(self, eval_loader):
         self.model.eval()

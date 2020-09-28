@@ -15,22 +15,22 @@ import torch.nn as nn
 from img2poem.nn.utils import normalize
 
 
-class PoeticDecoder(nn.Module):
+class FeaturesDecoder(nn.Module):
     """RNN-based Decoder for features from the poetic space.
     The decoder is based on a recurrent network, initialized by the features.
 
     """
 
-    def __init__(self, vocab_size, hidden_dim, embedding_dim, num_layers=2, bidirectional=True,
-                 features_dim=512, dropout=0.2, max_seq_len=128, token_sos_id=0, token_eos_id=1):
-        super(PoeticDecoder, self).__init__()
+    def __init__(self, vocab_size, hidden_dim, embedding_dim, num_layers=1, bidirectional=True,
+                 features_dim=512, dropout=0.2, max_seq_len=128, sos_token_id=0, eos_token_id=1):
+        super(FeaturesDecoder, self).__init__()
         self.max_seq_len = max_seq_len
-        # The embedding layer should have `token_sos_id` and `token_eos_id` rows in the matrix
-        self.token_sos_id = token_sos_id
-        self.token_eos_id = token_eos_id
-        self.embedding = nn.Embedding(features_dim, embedding_dim)
-        self.rnn_cell = nn.GRUCell(features_dim, hidden_dim)
-        self.rnn = nn.GRU(embedding_dim,
+        # The embedding layer should have `sos_token_id` and `eos_token_id` rows in the matrix
+        self.sos_token_id = sos_token_id
+        self.eos_token_id = eos_token_id
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.rnn_cell = nn.LSTMCell(features_dim, hidden_dim)
+        self.rnn = nn.LSTM(embedding_dim,
                           hidden_dim,
                           num_layers=num_layers,
                           bidirectional=bidirectional,
@@ -56,15 +56,18 @@ class PoeticDecoder(nn.Module):
         """
         # features = B, features_dim
         features = normalize(features)
+        # train the embedding layer
+        embedded = self.embedding(token_ids)
+        # embedded = B, hidden_dim, embedding_dim
+        embedded = self.dropout(embedded)
         # use features from the poetic space as hidden state
         h, c = self.rnn_cell(features)
-        # train the embedding layer
-        embeddings = self.embedding(token_ids)
-        # embedding = B, hidden_dim, embedding_dim
-        embeddings = self.dropout(embeddings)
-        packed_embeddings = nn.utils.rnn.pack_padded_sequence(embeddings, lengths, batch_first=True)
+        # h = B, hidden_dim | c = B, hidden_dim
+        h = h.unsqueeze(0)  # h = 1, B, hidden_dim
+        c = c.unsqueeze(0)  # c = 1, B, hidden_dim
+        packed_embeddings = nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True)
         packed_output, (_, _) = self.rnn(packed_embeddings, (h, c))
-        sequences, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)
+        sequences, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True, total_length=token_ids.size(1)-1)
         # sequences = B, max_seq_len
         out = self.dropout(sequences)
         out = self.fc(out)
@@ -90,23 +93,26 @@ class PoeticDecoder(nn.Module):
         batch_size = features.shape[0]
 
         sampled_ids = []
-        # use [SOS] as init input
-        start = torch.full((batch_size, 1), self.token_sos_id, 
+        # use <sos> as init input
+        start = torch.full((batch_size, 1), self.sos_token_id, 
                            dtype=torch.int, device=features.device).long()
         
         # Predict the next sentences
         with torch.no_grad():
-            inputs = self.embed(start)
+            inputs = self.embedding(start)
             # inputs = B, 1, embedding_dim
             # use features from the poetic space as hidden state
             (h, c) = self.rnn_cell(features)
+            # h = B, hidden_dim | c = B, hidden_dim
+            h = h.unsqueeze(0)  # h = 1, B, hidden_dim
+            c = c.unsqueeze(0)  # c = 1, B, hidden_dim
             for i in range(self.max_seq_len):
                 lstm_outputs, (h, c) = self.rnn(inputs, (h, c))
-                outputs = self.linear(lstm_outputs.squeeze(1))
-                weights = torch.functional.softmax(outputs / temperature, dim=1)
+                outputs = self.fc(lstm_outputs.squeeze(1))
+                weights = torch.nn.functional.softmax(outputs / temperature, dim=1)
                 predicted = torch.multinomial(weights, 1).squeeze(-1)
                 sampled_ids.append(predicted)
-                inputs = self.embed(predicted)
+                inputs = self.embedding(predicted)
                 inputs = inputs.unsqueeze(1)
 
         sampled_ids = torch.stack(sampled_ids, 1)
@@ -133,7 +139,7 @@ class Discriminator(nn.Module):
 
     """
 
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, num_classes=3, features_dim=512, bidirectional=True, dropout=0.2):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, num_classes=2, bidirectional=True, dropout=0.2):
         super(Discriminator, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.rnn = nn.LSTM(embedding_dim, hidden_dim, num_layers=1, batch_first=True, bidirectional=True)
@@ -141,12 +147,14 @@ class Discriminator(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, sequence, lengths):
-        embeddings = self.embedding(sequence[:, 1:])  # Skip <sos> tokens
-        embedded = self.dropout(embeddings)
+        embedded = self.embedding(sequence[:, 1:])  # Skip <sos> tokens
+        embedded = self.dropout(embedded)
         packed_sequence = nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True)
         # packed_sequence = B, max_seq_len, embedding_dim
         _, (hidden, _) = self.rnn(packed_sequence)
-        # hidden = B, hidden_dim
+        # hidden = bidirectional, B, hidden_dim
+        hidden = hidden.transpose(0, 1).contiguous().view(-1, hidden.size(2) * hidden.size(0))
+        # hidden = B, bidirectional * hidden_dim
         out = self.dropout(hidden)
         out = self.fc(out)
         # out = B, C
