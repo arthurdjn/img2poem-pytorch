@@ -40,8 +40,9 @@ class AdversarialTrainer(Trainer):
 
     def train(self, train_loader):
         self.model.train()
-        lossesG = []
         lossesD = []
+        lossesR = []
+        lossesG = []    
         trange = tqdm(train_loader, desc="  Training", position=0, leave=True, total=len(train_loader), file=sys.stdout)
         for _, tokens, token_ids, lengths, features in trange:
             token_ids = token_ids.to(self.device)
@@ -83,7 +84,7 @@ class AdversarialTrainer(Trainer):
             reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(1)
             lossR = -m.log_prob(pred_token_ids) * reward
             lossR.sum().backward(retain_graph=True)
-            lossR = lossR.mean().item()
+            lossesR.append(lossR.mean().item())
             
             # Measure the loss on the prediction
             label_packed = nn.utils.rnn.pack_padded_sequence(token_ids, lengths, batch_first=True)[0]
@@ -93,13 +94,15 @@ class AdversarialTrainer(Trainer):
             lossesG.append(lossG.mean().item())
             trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
                         
-        return {"lossG": np.mean(lossesG).item(),
-                "lossD": np.mean(lossesD).item()}
+        return {"lossD": np.mean(lossesD),
+                "lossR": np.mean(lossesR),
+                "lossG": np.mean(lossesG)}
 
     def eval(self, eval_loader):
         self.model.train()
-        lossesG = []
         lossesD = []
+        lossesG = []
+        lossesR = []
         trange = tqdm(eval_loader, desc="Evaluation", position=0, leave=True, total=len(eval_loader), file=sys.stdout)
         with torch.no_grad():
             for _, tokens, token_ids, lengths, features in trange:
@@ -132,7 +135,7 @@ class AdversarialTrainer(Trainer):
                 # 2.1. Train the generator (from https://pytorch.org/docs/stable/distributions.html#score-function)
                 reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(1)
                 lossR = -m.log_prob(pred_token_ids) * reward
-                lossR = lossR.mean().item()
+                lossesR.append(lossR.mean().item())
                 
                 # Measure the loss on the prediction
                 label_packed = nn.utils.rnn.pack_padded_sequence(token_ids, lengths, batch_first=True)[0]
@@ -141,8 +144,9 @@ class AdversarialTrainer(Trainer):
                 lossesG.append(lossG.mean().item())
                 trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
                 
-            return {"lossG": np.mean(lossesG),
-                    "lossD": np.mean(lossesD)}
+        return {"lossD": np.mean(lossesD),
+                "lossR": np.mean(lossesR),
+                "lossG": np.mean(lossesG)}
 
     def fit(self, train_loader, eval_loader, *args, epochs=10, **kwargs):
         # Train and evaluate the model epochs times
@@ -168,19 +172,27 @@ class AdversarialTrainer(Trainer):
                 self.tensorboard.add_scalar(f'{key}/eval', value, epoch)
 
             # Save a checkpoint if the loss decreased
-            # model_dict = {
-            #     'epoch': epoch,
-            #     'train_lossD': train_scores["lossD"],
-            #     'train_lossG': train_scores["lossG"],
-            #     'eval_lossD': eval_scores["lossD"],
-            #     'eval_lossG': eval_scores["lossG"],
-            #     'state_dict': self.model.state_dict(),
-            #     'optimizer': self.optimizer.state_dict(),
-            #     'criterion': self.criterion.__class__.__name__
-            # }
-            # # Quit if early stopping
-            # self.early_stopping(model_dict, eval_scores["lossG"].item(), epoch, self.savedir)
-            # if self.early_stopping.early_stop:
-            #     print(f"Early stopping at epoch {epoch}...")
-            #     return
-            # print()
+            discriminator_dict = {
+                'epoch': epoch,
+                'train_lossD': train_scores["lossD"],
+                'eval_lossD': eval_scores["lossD"],
+                'state_dict': self.model.state_dict(),
+                'optimizer': self.optimizerD.state_dict(),
+                'criterion': self.criterionD.__class__.__name__
+            }
+            generator_dict = {
+                'epoch': epoch,
+                'train_lossG': train_scores["lossG"],
+                'eval_lossG': eval_scores["lossG"],
+                'state_dict': self.model.state_dict(),
+                'optimizer': self.optimizer.state_dict(),
+                'criterion': self.criterion.__class__.__name__
+            }
+            # Quit if early stopping
+            self.early_stopping(discriminator_dict, eval_scores["lossD"], epoch, self.savedir)
+            if self.early_stopping.early_stop:
+                print(f"Early stopping at epoch {epoch}...")
+            self.early_stopping(generator_dict, eval_scores["lossG"], epoch, self.savedir)
+            if self.early_stopping.early_stop:
+                print(f"Early stopping at epoch {epoch}...")
+            print()
