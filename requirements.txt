@@ -1,4 +1,2 @@
 pytorch==1.6.0
-torchtext==0.6.0
 transformers==3.1.0
-pytorch_pretrained_bert==0.6.2
