@@ -40,7 +40,6 @@ import os
 from datetime import datetime
 from abc import abstractmethod, ABC
 from collections import defaultdict
-from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
 # img2poem package
@@ -75,12 +74,12 @@ class Trainer(ABC):
     def __init__(self, model, optimizer, criterion, scheduler=None,
                  root=".saved_models", patience=10, verbose=True, device="cpu"):
         super(Trainer, self).__init__()
-        start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
+        self.start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
         self.root = root
-        self.savedir = os.path.join(root, "saves", model.__class__.__name__, start)
-        self._rundir = os.path.join(root, "runs", model.__class__.__name__, start)
-        self._patience = patience
-        self._verbose = verbose
+        self.savedir = os.path.join(root, "saves", model.__class__.__name__, self.start)
+        self.rundir = os.path.join(root, "runs", model.__class__.__name__, self.start)
+        self.patience = patience
+        self.verbose = verbose
         self.device = device
 
         self.model = model
@@ -90,31 +89,6 @@ class Trainer(ABC):
         self.performace = defaultdict(list)
         self.tensorboard = SummaryWriter(self.rundir)
         self.early_stopping = EarlyStopping(patience=self.patience, verbose=self.verbose)
-
-    @property
-    def verbose(self):
-        return self._verbose
-
-    @verbose.setter
-    def verbose(self, value):
-        self.early_stopping = EarlyStopping(patience=self.patience, verbose=value)
-
-    @property
-    def patience(self):
-        return self._patience
-
-    @patience.setter
-    def patience(self, value):
-        self.early_stopping = EarlyStopping(value, self.verbose)
-
-    @property
-    def rundir(self):
-        return self._rundir
-
-    @rundir.setter
-    def rundir(self, value):
-        self._rundir = value
-        self.tensorboard = SummaryWriter(value)
 
     def cuda(self):
         self.device = "cuda"
