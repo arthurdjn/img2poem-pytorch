@@ -67,7 +67,7 @@ class FeaturesDecoder(nn.Module):
         c = c.unsqueeze(0)  # c = 1, B, hidden_dim
         packed_embeddings = nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True)
         packed_output, (_, _) = self.rnn(packed_embeddings, (h, c))
-        sequences, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True, total_length=token_ids.size(1)-1)
+        sequences, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)
         # sequences = B, max_seq_len
         out = self.dropout(sequences)
         out = self.fc(out)
@@ -147,7 +147,7 @@ class Discriminator(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, sequence, lengths):
-        embedded = self.embedding(sequence[:, 1:])  # Skip <sos> tokens
+        embedded = self.embedding(sequence)
         embedded = self.dropout(embedded)
         packed_sequence = nn.utils.rnn.pack_padded_sequence(embedded, lengths, batch_first=True)
         # packed_sequence = B, max_seq_len, embedding_dim

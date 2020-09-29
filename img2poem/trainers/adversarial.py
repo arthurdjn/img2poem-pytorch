@@ -50,7 +50,8 @@ class AdversarialTrainer(Trainer):
             # 1. Update the discriminator network
             # 1.1. Real data
             self.discriminator.zero_grad()
-            pred_real = self.discriminator(token_ids, lengths)
+            # Do not take into accounts the <sos> token, i.e. extract tokens from index 1
+            pred_real = self.discriminator(token_ids[:, 1:], lengths-1)
             label_real = torch.ones(token_ids.size(0), dtype=torch.long).to(self.device)
             lossD_real = self.criterionD(pred_real, label_real)
             lossD_real.backward(retain_graph=True)
@@ -64,7 +65,9 @@ class AdversarialTrainer(Trainer):
             m = Categorical(probs=weights)
             pred_token_ids = m.sample()
             # pred_token_ids = B, max_seq_len
-            pred_fake = self.discriminator(pred_token_ids.detach(), lengths)
+            with torch.no_grad():
+                # Do not take into accounts the <sos> token, i.e. extract tokens from index 1
+                pred_fake = self.discriminator(pred_token_ids[:, 1:], lengths-1)
             label_fake = torch.zeros(token_ids.size(0), dtype=torch.long).to(self.device)
             lossD_fake = self.criterionD(pred_fake, label_fake)
             lossD_fake.backward(retain_graph=True)
@@ -76,26 +79,36 @@ class AdversarialTrainer(Trainer):
             # 2. Update the generator network
             # 2.1. Train the generator (from https://pytorch.org/docs/stable/distributions.html#score-function)
             self.model.zero_grad()
+            pred_fake = self.discriminator(pred_token_ids[:, 1:], lengths-1)   
+            reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(1)
+            lossR = -m.log_prob(pred_token_ids) * reward
+            lossR.sum().backward(retain_graph=True)
+            lossR = lossR.mean().item()
+            
             # Measure the loss on the prediction
-            lossG = 0
-            for i in range(127):
-                lossG += self.criterion(weights[:, i, :], token_ids[:, i+1])
-            lossG.backward()
-            lossG = lossG.mean().item()
-            lossesG.append(lossG)
-        return {"lossG": np.mean(lossesG),
-                "lossD": np.mean(lossesD)}
+            label_packed = nn.utils.rnn.pack_padded_sequence(token_ids, lengths, batch_first=True)[0]
+            pred_packed = nn.utils.rnn.pack_padded_sequence(pred, lengths, batch_first=True)[0]
+            lossG = self.criterion(pred_packed, label_packed)
+            lossG.sum().backward()
+            lossesG.append(lossG.mean().item())
+            trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
+                        
+        return {"lossG": np.mean(lossesG).item(),
+                "lossD": np.mean(lossesD).item()}
 
     def eval(self, eval_loader):
-        self.model.eval()
+        self.model.train()
         lossesG = []
         lossesD = []
         trange = tqdm(eval_loader, desc="Evaluation", position=0, leave=True, total=len(eval_loader), file=sys.stdout)
         with torch.no_grad():
-            for _, features, token_ids, lengths in trange:
+            for _, tokens, token_ids, lengths, features in trange:
+                token_ids = token_ids.to(self.device)
+                features = features.to(self.device)
+
                 # 1. Update the discriminator network
                 # 1.1. Real data
-                pred_real = self.discriminator(token_ids, lengths)
+                pred_real = self.discriminator(token_ids[:, 1:], lengths-1)
                 label_real = torch.ones(token_ids.size(0), dtype=torch.long).to(self.device)
                 lossD_real = self.criterionD(pred_real, label_real)
                 # Get the mean loss over the batch
@@ -108,8 +121,8 @@ class AdversarialTrainer(Trainer):
                 m = Categorical(probs=weights)
                 pred_token_ids = m.sample()
                 # pred_token_ids = B, max_seq_len
-                pred_fake = self.discriminator(pred_token_ids.detach(), lengths)
-                label_fake = torch.zeros(token_ids.size(0)).long().to(self.device)
+                pred_fake = self.discriminator(pred_token_ids[:, 1:], lengths-1)
+                label_fake = torch.zeros(token_ids.size(0), dtype=torch.long).to(self.device)
                 lossD_fake = self.criterionD(pred_fake, label_fake)
                 # Update the performance and weights
                 lossD = lossD_real.item() + lossD_fake.item()
@@ -117,13 +130,57 @@ class AdversarialTrainer(Trainer):
 
                 # 2. Update the generator network
                 # 2.1. Train the generator (from https://pytorch.org/docs/stable/distributions.html#score-function)
-                reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(-1)
+                reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(1)
                 lossR = -m.log_prob(pred_token_ids) * reward
                 lossR = lossR.mean().item()
                 
                 # Measure the loss on the prediction
-                labels_pack, _ = nn.utils.rnn.pack_padded_sequence(token_ids[:, 1:], lengths, batch_first=True)
-                pred_pack = nn.utils.rnn.pack_padded_sequence(pred, lengths, batch_first=True)
-                lossG = self.criterion(pred_pack, labels_pack)
-                lossG = lossG.mean().item()
-                lossesG.append(lossG)
+                label_packed = nn.utils.rnn.pack_padded_sequence(token_ids, lengths, batch_first=True)[0]
+                pred_packed = nn.utils.rnn.pack_padded_sequence(pred, lengths, batch_first=True)[0]
+                lossG = self.criterion(pred_packed, label_packed)
+                lossesG.append(lossG.mean().item())
+                trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
+                
+            return {"lossG": np.mean(lossesG),
+                    "lossD": np.mean(lossesD)}
+
+    def fit(self, train_loader, eval_loader, *args, epochs=10, **kwargs):
+        # Train and evaluate the model epochs times
+        for epoch in range(1, epochs+1):
+            epoch_len = len(str(epochs))
+            print(f"Epoch: {epoch:>{epoch_len}}/{epochs}")
+
+            # Train and evaluate the model
+            train_scores = self.train(train_loader, *args, **kwargs)
+            eval_scores = self.eval(eval_loader, *args, **kwargs)
+            # # Reduce the learning rate
+            # if self.scheduler is not None:
+            #     self.scheduler.step(eval_scores["loss"])
+
+            # Update the performances
+            print(f"\tTraining:   {' | '.join([f'{key}: {value:.4f}' for key, value in train_scores.items()])}")
+            print(f"\tEvaluation: {' | '.join([f'{key}: {value:.4f}' for key, value in eval_scores.items()])}")
+            for key, value in train_scores.items():
+                self.performace[f"train_{key}"].append(value)
+                self.tensorboard.add_scalar(f'{key}/train', value, epoch)
+            for key, value in eval_scores.items():
+                self.performace[f"eval_{key}"].append(value)
+                self.tensorboard.add_scalar(f'{key}/eval', value, epoch)
+
+            # Save a checkpoint if the loss decreased
+            # model_dict = {
+            #     'epoch': epoch,
+            #     'train_lossD': train_scores["lossD"],
+            #     'train_lossG': train_scores["lossG"],
+            #     'eval_lossD': eval_scores["lossD"],
+            #     'eval_lossG': eval_scores["lossG"],
+            #     'state_dict': self.model.state_dict(),
+            #     'optimizer': self.optimizer.state_dict(),
+            #     'criterion': self.criterion.__class__.__name__
+            # }
+            # # Quit if early stopping
+            # self.early_stopping(model_dict, eval_scores["lossG"].item(), epoch, self.savedir)
+            # if self.early_stopping.early_stop:
+            #     print(f"Early stopping at epoch {epoch}...")
+            #     return
+            # print()
