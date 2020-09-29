@@ -34,7 +34,7 @@ class AdversarialTrainer(Trainer):
     def __init__(self, generator, optimizerG, criterionG,
                  discriminator, optimizerD, criterionD, **kwargs):
         super(AdversarialTrainer, self).__init__(generator, optimizerG, criterionG, **kwargs)
-        self.discriminator = discriminator
+        self.modelD = discriminator
         self.optimizerD = optimizerD
         self.criterionD = criterionD
 
@@ -42,7 +42,7 @@ class AdversarialTrainer(Trainer):
         self.model.train()
         lossesD = []
         lossesR = []
-        lossesG = []    
+        lossesG = []
         trange = tqdm(train_loader, desc="  Training", position=0, leave=True, total=len(train_loader), file=sys.stdout)
         for _, tokens, token_ids, lengths, features in trange:
             token_ids = token_ids.to(self.device)
@@ -50,9 +50,9 @@ class AdversarialTrainer(Trainer):
 
             # 1. Update the discriminator network
             # 1.1. Real data
-            self.discriminator.zero_grad()
+            self.modelD.zero_grad()
             # Do not take into accounts the <sos> token, i.e. extract tokens from index 1
-            pred_real = self.discriminator(token_ids[:, 1:], lengths-1)
+            pred_real = self.modelD(token_ids[:, 1:], lengths-1)
             label_real = torch.ones(token_ids.size(0), dtype=torch.long).to(self.device)
             lossD_real = self.criterionD(pred_real, label_real)
             lossD_real.backward(retain_graph=True)
@@ -66,9 +66,8 @@ class AdversarialTrainer(Trainer):
             m = Categorical(probs=weights)
             pred_token_ids = m.sample()
             # pred_token_ids = B, max_seq_len
-            with torch.no_grad():
-                # Do not take into accounts the <sos> token, i.e. extract tokens from index 1
-                pred_fake = self.discriminator(pred_token_ids[:, 1:], lengths-1)
+            # Do not take into accounts the <sos> token, i.e. extract tokens from index 1
+            pred_fake = self.modelD(pred_token_ids[:, 1:], lengths-1)
             label_fake = torch.zeros(token_ids.size(0), dtype=torch.long).to(self.device)
             lossD_fake = self.criterionD(pred_fake, label_fake)
             lossD_fake.backward(retain_graph=True)
@@ -80,12 +79,12 @@ class AdversarialTrainer(Trainer):
             # 2. Update the generator network
             # 2.1. Train the generator (from https://pytorch.org/docs/stable/distributions.html#score-function)
             self.model.zero_grad()
-            pred_fake = self.discriminator(pred_token_ids[:, 1:], lengths-1)   
+            pred_fake = self.modelD(pred_token_ids[:, 1:], lengths-1)
             reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(1)
             lossR = -m.log_prob(pred_token_ids) * reward
             lossR.sum().backward(retain_graph=True)
             lossesR.append(lossR.mean().item())
-            
+
             # Measure the loss on the prediction
             label_packed = nn.utils.rnn.pack_padded_sequence(token_ids, lengths, batch_first=True)[0]
             pred_packed = nn.utils.rnn.pack_padded_sequence(pred, lengths, batch_first=True)[0]
@@ -93,7 +92,7 @@ class AdversarialTrainer(Trainer):
             lossG.sum().backward()
             lossesG.append(lossG.mean().item())
             trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
-                        
+
         return {"lossD": np.mean(lossesD),
                 "lossR": np.mean(lossesR),
                 "lossG": np.mean(lossesG)}
@@ -111,7 +110,7 @@ class AdversarialTrainer(Trainer):
 
                 # 1. Update the discriminator network
                 # 1.1. Real data
-                pred_real = self.discriminator(token_ids[:, 1:], lengths-1)
+                pred_real = self.modelD(token_ids[:, 1:], lengths-1)
                 label_real = torch.ones(token_ids.size(0), dtype=torch.long).to(self.device)
                 lossD_real = self.criterionD(pred_real, label_real)
                 # Get the mean loss over the batch
@@ -124,7 +123,7 @@ class AdversarialTrainer(Trainer):
                 m = Categorical(probs=weights)
                 pred_token_ids = m.sample()
                 # pred_token_ids = B, max_seq_len
-                pred_fake = self.discriminator(pred_token_ids[:, 1:], lengths-1)
+                pred_fake = self.modelD(pred_token_ids[:, 1:], lengths-1)
                 label_fake = torch.zeros(token_ids.size(0), dtype=torch.long).to(self.device)
                 lossD_fake = self.criterionD(pred_fake, label_fake)
                 # Update the performance and weights
@@ -136,19 +135,39 @@ class AdversarialTrainer(Trainer):
                 reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(1)
                 lossR = -m.log_prob(pred_token_ids) * reward
                 lossesR.append(lossR.mean().item())
-                
+
                 # Measure the loss on the prediction
                 label_packed = nn.utils.rnn.pack_padded_sequence(token_ids, lengths, batch_first=True)[0]
                 pred_packed = nn.utils.rnn.pack_padded_sequence(pred, lengths, batch_first=True)[0]
                 lossG = self.criterion(pred_packed, label_packed)
                 lossesG.append(lossG.mean().item())
-                trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
+                # Update weights
+                for param in self.model.parameters():
+                    torch.nn.utils.clip_grad_norm_(param, 0.25)
+                self.optimizer.step()
                 
+                trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
+
         return {"lossD": np.mean(lossesD),
                 "lossR": np.mean(lossesR),
                 "lossG": np.mean(lossesG)}
 
-    def fit(self, train_loader, eval_loader, *args, epochs=10, **kwargs):
+    def sample(self, eval_loader, tokenizer, temperature=1):
+        with torch.no_grad():
+            for _, tokens, token_ids, lengths, features in eval_loader:
+                features = features.to(self.device)
+                pred_token_ids = self.model.generate(features, temperature=temperature)
+                pred_token_ids = pred_token_ids.cpu()
+                pred_tokens = tokenizer.tokenize(pred_token_ids[0].numpy())
+                pred_poem = " ".join(pred_tokens).replace(";", "\n").replace(" <pad>", "")
+                print("\n-----------------------")
+                print("Predicted Poem")
+                print("-----------------------\n")
+                print(pred_poem)
+                print("\n-----------------------\n")
+                return
+
+    def fit(self, train_loader, eval_loader, *args, epochs=10, tokenizer=None, temperature=1, sample_every=0, **kwargs):
         # Train and evaluate the model epochs times
         for epoch in range(1, epochs+1):
             epoch_len = len(str(epochs))
@@ -174,16 +193,16 @@ class AdversarialTrainer(Trainer):
             # Save a checkpoint if the loss decreased
             discriminator_dict = {
                 'epoch': epoch,
-                'train_lossD': train_scores["lossD"],
-                'eval_lossD': eval_scores["lossD"],
-                'state_dict': self.model.state_dict(),
+                'train_loss': train_scores["lossD"],
+                'eval_loss': eval_scores["lossD"],
+                'state_dict': self.modelD.state_dict(),
                 'optimizer': self.optimizerD.state_dict(),
                 'criterion': self.criterionD.__class__.__name__
             }
             generator_dict = {
                 'epoch': epoch,
-                'train_lossG': train_scores["lossG"],
-                'eval_lossG': eval_scores["lossG"],
+                'train_loss': train_scores["lossG"],
+                'eval_loss': eval_scores["lossG"],
                 'state_dict': self.model.state_dict(),
                 'optimizer': self.optimizer.state_dict(),
                 'criterion': self.criterion.__class__.__name__
@@ -195,4 +214,10 @@ class AdversarialTrainer(Trainer):
             self.early_stopping(generator_dict, eval_scores["lossG"], epoch, self.savedir)
             if self.early_stopping.early_stop:
                 print(f"Early stopping at epoch {epoch}...")
+            print()
+
+            # Print the current predictions, in poem format
+            if sample_every > 0 and tokenizer is not None:
+                if epoch % sample_every == 0:
+                    self.sample(eval_loader, tokenizer, temperature=temperature)
             print()
