@@ -91,6 +91,11 @@ class AdversarialTrainer(Trainer):
             lossG = self.criterion(pred_packed, label_packed)
             lossG.sum().backward()
             lossesG.append(lossG.mean().item())
+            # Update weights
+            for param in self.model.parameters():
+                torch.nn.utils.clip_grad_norm_(param, 0.25)
+            self.optimizer.step()
+            
             trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
 
         return {"lossD": np.mean(lossesD),
@@ -141,11 +146,6 @@ class AdversarialTrainer(Trainer):
                 pred_packed = nn.utils.rnn.pack_padded_sequence(pred, lengths, batch_first=True)[0]
                 lossG = self.criterion(pred_packed, label_packed)
                 lossesG.append(lossG.mean().item())
-                # Update weights
-                for param in self.model.parameters():
-                    torch.nn.utils.clip_grad_norm_(param, 0.25)
-                self.optimizer.step()
-                
                 trange.set_postfix({f"lossD": f"{lossD:.6f}", "lossG": f"{lossG:.6f}"})
 
         return {"lossD": np.mean(lossesD),
