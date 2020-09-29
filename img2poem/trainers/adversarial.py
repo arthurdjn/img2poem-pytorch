@@ -44,7 +44,7 @@ class AdversarialTrainer(Trainer):
 
         self.savedirD = os.path.join(root, "saves", self.modelD.__class__.__name__, self.start)
         self.rundirD = os.path.join(root, "runs", self.modelD.__class__.__name__, self.start)
-        self.tensorboardD = SummaryWriter(self.rundir)
+        self.tensorboardD = SummaryWriter(self.rundirD)
         self.early_stoppingD = EarlyStopping(patience=self.patience, verbose=self.verbose)
 
     def train(self, train_loader):
@@ -165,7 +165,7 @@ class AdversarialTrainer(Trainer):
                 pred_token_ids = pred_token_ids[0].cpu().numpy()
                 pred_tokens = tokenizer.convert_ids_to_tokens(pred_token_ids)
                 pred_poem = " ".join(pred_tokens).replace(";", "\n").replace(" <pad>", "")
-                poem = " ".join(tokens).replace(";", "\n").replace(" <pad>", "")
+                poem = " ".join(tokens[0]).replace(";", "\n").replace(" <pad>", "")
                 print("\n-----------------------")
                 print("Poem\n")
                 print(poem)
@@ -184,14 +184,14 @@ class AdversarialTrainer(Trainer):
             # Train and evaluate the model
             train_scoresD, train_scoresG = self.train(train_loader, *args, **kwargs)
             eval_scoresD, eval_scoresG = self.eval(eval_loader, *args, **kwargs)
-            # # Reduce the learning rate
+            # Reduce the learning rate
             if self.scheduler is not None:
                 self.scheduler.step()
             if self.schedulerD is not None:
                 self.schedulerD.step()
 
             # Update the performances for the discriminator
-            print(f"\tTrain D:   {' | '.join([f'{key}: {value:.4f}' for key, value in train_scoresD.items()])}")
+            print(f"\tTrain D: {' | '.join([f'{key}: {value:.4f}' for key, value in train_scoresD.items()])}")
             print(f"\tEval  D: {' | '.join([f'{key}: {value:.4f}' for key, value in eval_scoresD.items()])}")
             for key, value in train_scoresD.items():
                 self.performace[f"train_{key}"].append(value)
