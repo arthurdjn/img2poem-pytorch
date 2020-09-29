@@ -76,7 +76,7 @@ class AdversarialTrainer(Trainer):
             pred_token_ids = m.sample()
             # pred_token_ids = B, max_seq_len
             # Do not take into accounts the <sos> token, i.e. extract tokens from index 1
-            pred_fake = self.modelD(pred_token_ids[:, 1:], lengths-1)
+            pred_fake = self.modelD(pred_token_ids[:, 1:].detach(), lengths-1)
             label_fake = torch.zeros(token_ids.size(0), dtype=torch.long).to(self.device)
             lossD_fake = self.criterionD(pred_fake, label_fake)
             lossD_fake.backward(retain_graph=True)
@@ -88,7 +88,8 @@ class AdversarialTrainer(Trainer):
             # 2. Update the generator network
             # 2.1. Train the generator (from https://pytorch.org/docs/stable/distributions.html#score-function)
             self.model.zero_grad()
-            pred_fake = self.modelD(pred_token_ids[:, 1:], lengths-1)
+            
+            pred_fake = self.modelD(pred_token_ids[:, 1:].detach(), lengths-1)
             reward = F.softmax(pred_fake, dim=-1)[:, 1].unsqueeze(1)
             lossR = -m.log_prob(pred_token_ids) * reward
             lossR.sum().backward(retain_graph=True)
