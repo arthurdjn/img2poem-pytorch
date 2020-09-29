@@ -141,4 +141,5 @@ readings/
 runs/
 saves/
 .*/
-*.pkl
+*.pkl*
+*.csv
