@@ -10,16 +10,14 @@
 # Basic imports
 import os
 from tqdm import tqdm
-from PIL import Image
 import pandas as pd
-import torch
-from torch.utils.data import Dataset
+from torchvision.datasets import DatasetFolder
 
 # img2poem package
 from .utils import download_image, DEFAULT_TRANSFORM
 
 
-class ImagePolarityDataset(Dataset):
+class ImagePolarityDataset(DatasetFolder):
     """Dataset for image sentiment polarity, brought by ``crowdflower``.
     This dataset is made a cooperative dataset containing a set of images and sentiment labels, such as
     * Highly negative
@@ -48,52 +46,25 @@ class ImagePolarityDataset(Dataset):
     dirname = 'crowdflower'
     name = 'polarity'
 
-    def __init__(self, filename, image_dir, transform=None):
+    id2label = {
+        0: 'highly_negative',
+        1: 'negative',
+        2: 'neutral',
+        3: 'positive',
+        4: 'highly_positive'
+    }
+    label2id = {
+        'highly_negative': 0,
+        'negative': 1,
+        'neutral': 2,
+        'positive': 3,
+        'highly_positive': 4
+    }
+
+    def __init__(self, root, transform=None):
         super(ImagePolarityDataset, self).__init__()
-        self.filename = filename
-        self.image_dir = image_dir
-        self.data = pd.read_csv(filename)
-        self.transform = transform or DEFAULT_TRANSFORM
-        ids = []
-        images = []
-        labels = []
-        for _, row in tqdm(self.data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
-            id = row['_unit_id']
-            sentiment = row['which_of_these_sentiment_scores_does_the_above_image_fit_into_best']
-            label = self.label2id[sentiment]
-            image_file = os.path.join(image_dir, f'{id}.jpg')
-            try:
-                image = Image.open(image_file).convert('RGB')
-                image = self.transform(image)
-                ids.append(id)
-                images.append(image)
-                labels.append(label)
-            except Exception:
-                pass
-
-        self.ids = torch.tensor(ids)
-        self.images = torch.stack(images)
-        self.labels = torch.tensor(labels)
-
-    @property
-    def id2label(self):
-        return {
-            0: 'Highly negative',
-            1: 'Negative',
-            2: 'Neutral',
-            3: 'Positive',
-            4: 'Highly positive'
-        }
-
-    @property
-    def label2id(self):
-        return {
-            'Highly negative': 0,
-            'Negative': 1,
-            'Neutral': 2,
-            'Positive': 3,
-            'Highly positive': 4
-        }
+        transform = transform or DEFAULT_TRANSFORM
+        super(ImagePolarityDataset, self).__init__(root, transform=self.transform)
 
     @classmethod
     def download(cls, root='.data', **kwargs):
@@ -105,41 +76,57 @@ class ImagePolarityDataset(Dataset):
         Returns:
             ImageSentimentDataset
         """
-        # Check for path issues
+        # Create the main directory at the root.
         outdir = os.path.join(root, cls.dirname, cls.name)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
+        # Create sub directories for each labels / sentiments.
+        for sentiment in cls.id2label.values():
+            subdir = os.path.join(outdir, sentiment)
+            if not os.path.exists(subdir):
+                os.makedirs(subdir)
         # Load the CSV data
         df = pd.read_csv(cls.url)
         trange = tqdm(df.iterrows(), desc='Downloading', position=0, leave=True, total=len(df))
         for _, row in trange:
             id = row['_unit_id']
             url = row['imageurl']
-            # Download the image from the URL
-            image_file = os.path.join(outdir, f'{id}.jpg')
+            sentiment = row['which_of_these_sentiment_scores_does_the_above_image_fit_into_best'].lower().replace(" ", '_')
+            image_file = os.path.join(outdir, sentiment, f'{id}.jpg')
             try:
+                # Download the image if it is not in its subdirectory
                 if not os.path.isfile(image_file):
-                    download_image(url, image_file)
-            except Exception:
-                print(f"WARNING: Image {id} not downloaded from {url}.")
+                    # Download the image from the URL
+                    image_file = download_image(url, image_file)
+                    # In case the downloaded image does not have any content (i.e. size < 1kb)
+                    if os.path.getsize(image_file) < 1_000:
+                        os.remove(image_file)
+
+            except Exception as error:
+                print(f"[WARNING] {error}. Image {id} not downloaded from {url}.")
 
         return ImagePolarityDataset(cls.url, outdir, **kwargs)
 
-    def __len__(self):
-        return len(self.ids)
-
     def __getitem__(self, index):
-        return self.ids[index], self.images[index], self.labels[index]
+        path, target = self.samples[index]
+        sample = self.loader(path)
+        if self.transform is not None:
+            sample = self.transform(sample)
+        id = int(os.path.basename(path).split(".")[0])
+        return id, sample, target
 
 
-class ImageEmotionDataset(Dataset):
+class ImageEmotionDataset(DatasetFolder):
     """Dataset for image emotion polarity, brought by ``crowdflower``.
     This dataset is made a cooperative dataset containing a set of images and sentiment labels, such as
-    * Highly negative
-    * Negative
-    * Neutral
-    * Positive
-    * Highly positive
+    * amusement
+    * anger
+    * awe
+    * contentment
+    * excitement
+    * disgust
+    * fear
+    * sadness
 
     * :attr:`data` (torch.tensor): Image data of all images available in the csv.
 
@@ -161,51 +148,31 @@ class ImageEmotionDataset(Dataset):
     dirname = 'crowdflower'
     name = 'emotion'
 
-    def __init__(self, filename, image_dir, transform=None):
+    id2label = {
+        0: 'amusement',
+        1: 'anger',
+        2: 'awe',
+        3: 'contentment',
+        4: 'excitement',
+        5: 'disgust',
+        6: 'fear',
+        7: 'sadness'
+    }
+    label2id = {
+        'amusement': 0,
+        'anger': 1,
+        'awe': 2,
+        'contentment': 3,
+        'excitement': 4,
+        'disgust': 5,
+        'fear': 6,
+        'sadness': 7
+    }
+
+    def __init__(self, root, transform=None):
         super(ImageEmotionDataset, self).__init__()
-        self.filename = filename
-        self.image_dir = image_dir
-        self.data = pd.read_csv(filename)
-        self.transform = transform or DEFAULT_TRANSFORM
-        ids = []
-        for _, row in tqdm(self.data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
-            id = row['id']
-            image_file = os.path.join(image_dir, f'{id}.jpg')
-            try:
-                # Try to load the image, but only save its id for later use.
-                # Storing the whole image may crash, as a result of out of memory error.
-                Image.open(image_file).convert("RGB")
-                ids.append(id)
-            except Exception:
-                pass
-
-        self.ids = torch.tensor(ids)
-
-    @property
-    def id2label(self):
-        return {
-            0: 'amusement',
-            1: 'anger',
-            2: 'awe',
-            3: 'contentment',
-            4: 'excitement',
-            5: 'disgust',
-            6: 'fear',
-            7: 'sadness'
-        }
-
-    @property
-    def label2id(self):
-        return {
-            'amusement': 0,
-            'anger': 1,
-            'awe': 2,
-            'contentment': 3,
-            'excitement': 4,
-            'disgust': 5,
-            'fear': 6,
-            'sadness': 7
-        }
+        transform = transform or DEFAULT_TRANSFORM
+        super(ImageEmotionDataset, self).__init__(root, transform=transform)
 
     @classmethod
     def download(cls, root='.data', **kwargs):
@@ -227,24 +194,27 @@ class ImageEmotionDataset(Dataset):
         for _, row in trange:
             id = row['id']
             url = row['url']
-            # Download the image from the URL
-            image_file = os.path.join(outdir, f'{id}.jpg')
-            try:
-                if not os.path.isfile(image_file):
-                    download_image(url, image_file)
-            except Exception:
-                print(f"WARNING: Image {id} not downloaded from {url}.")
+            agrees = int(row['agrees'])
+            disagrees = int(row['disagrees'])
+            emotion = row['emotion']
+            image_file = os.path.join(outdir, emotion, f'{id}.jpg')
+            # Download only if people agrees on the label
+            if agrees - 1 > disagrees:
+                try:
+                    if not os.path.isfile(image_file):
+                        image_file = download_image(url, image_file)
+                        # In case the downloaded image does not have any content (i.e. size < 1kb)
+                        if os.path.getsize(image_file) < 1_000:
+                            os.remove(image_file)
+                except Exception as error:
+                    print(f"[WARNING] {error}. Image {id} not downloaded from {url}.")
 
-        return ImageEmotionDataset(cls.url, outdir, **kwargs)
-
-    def __len__(self):
-        return len(self.ids)
+        return ImageEmotionDataset(root, **kwargs)
 
     def __getitem__(self, index):
-        id = int(self.ids[index])
-        emotion = self.data.iloc[id].emotion
-        label = self.label2id[emotion]
-        image_file = os.path.join(self.image_dir, f'{id}.jpg')
-        image = Image.open(image_file).convert("RGB")
-        image = self.transform(image)
-        return id, image, label
+        path, target = self.samples[index]
+        sample = self.loader(path)
+        if self.transform is not None:
+            sample = self.transform(sample)
+        id = int(os.path.basename(path).split(".")[0])
+        return id, sample, target

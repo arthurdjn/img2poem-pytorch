@@ -19,7 +19,7 @@ DEFAULT_TRANSFORM = transforms.Compose([
     # To float values between [0, 1]
     transforms.ToTensor(),
     # Normalize regarding ResNet training data
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 
@@ -45,3 +45,4 @@ def download_image(url, outname, outdir='./'):
         except Exception as error:
             print(f"WARNING: An error occured. {error}"
                   f"Could not download the image {outdir}/{outname} from the URL {url}.")
+    return os.path.join(outdir, outname)

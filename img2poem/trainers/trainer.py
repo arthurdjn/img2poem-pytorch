@@ -15,11 +15,11 @@ The `API` is similar to `sklearn` or `TensorFlow`.
 
 .. code-block:: python
 
-    from astnets.torch.nn import UNet
-    from astnets.torch import Trainer
+    from img2poem.nn import ResNet
+    from img2poem.trainers import Trainer
 
 
-    class UNetTrainer(Trainer):
+    class ResNetTrainer(Trainer):
         def train(train_loader, criterion, optimizer):
             # train one single time the network
             pass
@@ -29,8 +29,8 @@ The `API` is similar to `sklearn` or `TensorFlow`.
             pass
 
 
-    model = UNet(*args)
-    trainer = UNetTrainer(model)
+    model = ResNet(*args)
+    trainer = ResNetTrainer(model)
     trainer.fit(epochs, train_loader, eval_loader, criterion, optimizer)
 
 """
@@ -72,7 +72,7 @@ class Trainer(ABC):
     """
 
     def __init__(self, model, optimizer, criterion, scheduler=None,
-                 root=".saved_models", patience=10, verbose=True, device="cpu"):
+                 root="saved_models", patience=10, verbose=True, device="cpu"):
         super(Trainer, self).__init__()
         self.start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
         self.root = root
@@ -97,14 +97,6 @@ class Trainer(ABC):
     def cpu(self):
         self.device = "cpu"
         return self
-
-    def clear(self):
-        start = datetime.now().isoformat().split('.')[0].replace(':', '-', )
-        self.savedir = os.path.join(self.root, "saves", self.model.__class__.__name__, start)
-        self.rundir = os.path.join(self.root, "runs", self.model.__class__.__name__, start)
-        self.performace = defaultdict(list)
-        self.tensorboard = SummaryWriter(self.rundir)
-        self.early_stopping = EarlyStopping(patience=self.patience, verbose=self.verbose)
 
     @abstractmethod
     def train(self, train_loader, *args, **kwargs):

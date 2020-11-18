@@ -117,18 +117,18 @@ class PoemMultiMDataset(Dataset):
     dirname = 'img2poem'
     name = 'multim'
 
-    def __init__(self, filename, image_dir, tokenizer=None, max_seq_len=128, transform=None):
+    def __init__(self, root, tokenizer=None, max_seq_len=128, transform=None):
         super(PoemMultiMDataset, self).__init__()
         self.tokenizer = tokenizer or BertTokenizer.from_pretrained('bert-base-uncased')
-        self.data = pd.read_json(filename)
         self.transform = transform or DEFAULT_TRANSFORM
+        data = pd.read_json(self.__class__.filename)
         ids = []
         poems = []
         images = []
-        for _, row in tqdm(self.data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
+        for _, row in tqdm(data.iterrows(), desc='Loading', position=0, leave=True, total=len(self.data)):
             id = row.id
             poem = row.poem.replace("\n", " ; ")
-            image_file = os.path.join(image_dir, f'{id}.jpg')
+            image_file = os.path.join(root, f'{id}.jpg')
             try:
                 image = self.transform(Image.open(image_file).convert('RGB'))
                 ids.append(id)
@@ -162,7 +162,7 @@ class PoemMultiMDataset(Dataset):
             except Exception:
                 print(f"WARNING: Image {id} not downloaded from {url}.")
 
-        return PoemMultiMDataset(cls.url, outdir, **kwargs)
+        return PoemMultiMDataset(outdir, **kwargs)
 
     def __len__(self):
         return len(self.ids)

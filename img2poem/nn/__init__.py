@@ -7,5 +7,7 @@
 # Copyright (c) 2020 Arthur Dujardin
 
 
-from .modules import *
+from .adversarial import FeaturesDecoder, Discriminator
+from .resnet import ResNet50Sentiment, ResNet50Object, ResNet50Scene
+from .embedder import PoemEmbedder, ImageEmbedder, PoeticEmbedder
 from .loss import *
