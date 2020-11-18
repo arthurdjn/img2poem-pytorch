@@ -27,7 +27,8 @@ def extract_poem_features(filename, embedder_path, device="cuda", outdir="data")
     
     embedder = PoemEmbedder().to(device)
     checkpoint = torch.load(embedder_path)
-    embedder.load_state_dict(checkpoint['state_dict'])
+    embedder.load_state_dict(checkpoint['state_dict']) 
+    embedder.eval()
     
     features = {
         "id": [],
@@ -60,6 +61,7 @@ def extract_image_features(filename, image_dir, embedder_path, device="cuda", ou
     embedder = ImageEmbedder().to(device)
     checkpoint = torch.load(embedder_path)
     embedder.load_state_dict(checkpoint['state_dict'])
+    embedder.eval()
     
     features = {
         "id": [],

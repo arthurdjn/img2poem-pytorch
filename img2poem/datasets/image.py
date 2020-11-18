@@ -11,13 +11,13 @@
 import os
 from tqdm import tqdm
 import pandas as pd
-from torchvision.datasets import DatasetFolder
+from torchvision.datasets import ImageFolder
 
 # img2poem package
 from .utils import download_image, DEFAULT_TRANSFORM
 
 
-class ImagePolarityDataset(DatasetFolder):
+class ImagePolarityDataset(ImageFolder):
     """Dataset for image sentiment polarity, brought by ``crowdflower``.
     This dataset is made a cooperative dataset containing a set of images and sentiment labels, such as
     * Highly negative
@@ -42,7 +42,7 @@ class ImagePolarityDataset(DatasetFolder):
 
     """
 
-    url = 'https://github.com/arthurdjn/img2poem-pytorch/raw/master/data/images/image-Sentiment-polarity-DFE.csv'
+    url = 'https://github.com/arthurdjn/img2poem-pytorch/raw/master/data/images/image-sentiment-polarity.csv'
     dirname = 'crowdflower'
     name = 'polarity'
 
@@ -116,7 +116,7 @@ class ImagePolarityDataset(DatasetFolder):
         return id, sample, target
 
 
-class ImageEmotionDataset(DatasetFolder):
+class ImageEmotionDataset(ImageFolder):
     """Dataset for image emotion polarity, brought by ``crowdflower``.
     This dataset is made a cooperative dataset containing a set of images and sentiment labels, such as
     * amusement
@@ -144,7 +144,7 @@ class ImageEmotionDataset(DatasetFolder):
 
     """
 
-    url = 'https://github.com/arthurdjn/img2poem-pytorch/raw/master/data/images/image-Sentiment-emotion.csv'
+    url = 'https://github.com/arthurdjn/img2poem-pytorch/raw/master/data/images/image-sentiment-emotion.csv'
     dirname = 'crowdflower'
     name = 'emotion'
 
