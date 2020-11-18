@@ -14,7 +14,7 @@ import torch.nn as nn
 from torchvision.models import resnet50
 
 # img2poem package
-from .utils import download_weights
+from img2poem.nn.utils import download_weights
 
 
 class ResNet50Object(nn.Module):
@@ -29,9 +29,9 @@ class ResNet50Object(nn.Module):
         ResNet50 = resnet50(pretrained=True)
         modules = list(ResNet50.children())[:-1]
         # Do not train this model
-        for param in ResNet50.parameters():
-            param.requires_grad = False
         self.backbone = nn.Sequential(*modules)
+        for param in self.parameters():
+            param.requires_grad = False
 
     def forward(self, x):
         # image = B, 3, 224, 224

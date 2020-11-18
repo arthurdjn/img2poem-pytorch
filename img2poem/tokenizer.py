@@ -33,7 +33,7 @@ def pad_sequence(sequence, tokenizer, max_seq_len=512, sos_token='[CLS]', eos_to
     # Tokenize the sequence
     tokens = tokenizer.tokenize(sequence)
     # Truncate and add SOS and EOS special tokens
-    tokens = [sos_token] + tokens[0:max_seq_len-2] + [eos_token]
+    tokens = [sos_token] + tokens[0:max_seq_len - 2] + [eos_token]
     tokens_padded = tokens + [pad_token] * (max_seq_len - len(tokens))
     tokens_ids_padded = tokenizer.convert_tokens_to_ids(tokens_padded)
     # Pad the sequences
@@ -61,10 +61,10 @@ def pad_sequences(sequences, tokenizer, sos_token='[CLS]', eos_token='[SEP]', pa
     attention_masks = []
     for sequence in sequences:
         tokens, tokens_ids, masks = pad_sequence(sequence, tokenizer,
-                                         max_seq_len=max_seq_len,
-                                         sos_token=sos_token,
-                                         eos_token=eos_token,
-                                         pad_token=pad_token)
+                                                 max_seq_len=max_seq_len,
+                                                 sos_token=sos_token,
+                                                 eos_token=eos_token,
+                                                 pad_token=pad_token)
         tokens_padded.append(tokens)
         tokens_ids_padded.append(tokens_ids)
         attention_masks.append(masks)
@@ -103,7 +103,7 @@ class Tokenizer(object):
         freq = sorted(freq.items(), key=lambda item: -item[1])
         for i, (key, _) in enumerate(freq[:vocab_size or -1]):
             self.vocab[key] = i + 4  # Because <sos>, <eos>, <unk>, <pad> tokens
-            self.ids[i + 4] = key    # Because <sos>, <eos>, <unk>, <pad> tokens
+            self.ids[i + 4] = key  # Because <sos>, <eos>, <unk>, <pad> tokens
 
     def tokenize(self, sentence):
         sentence = self.preprocess(sentence)
