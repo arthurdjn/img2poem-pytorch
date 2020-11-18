@@ -188,6 +188,11 @@ class ImageEmotionDataset(ImageFolder):
         outdir = os.path.join(root, cls.dirname, cls.name)
         if not os.path.exists(outdir):
             os.makedirs(outdir)
+        # Create sub directories for each labels / sentiments.
+        for sentiment in cls.id2label.values():
+            subdir = os.path.join(outdir, sentiment)
+            if not os.path.exists(subdir):
+                os.makedirs(subdir)
         # Load the CSV data
         df = pd.read_csv(cls.url)
         trange = tqdm(df.iterrows(), desc='Downloading', position=0, leave=True, total=len(df))
